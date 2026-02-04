@@ -12,7 +12,7 @@ This folder contains old versions of the bot and dashboard that are no longer in
 ## Current Active Files (in root):
 
 - `paper_trader.py` - **v4 bot** (BTC RSI long-only + ETH CCI, writes to `paper_trading_state.json`)
-- `dashboard_v3.py` - **v4 dashboard** (reads from `paper_trading_state.json`)
+- `dashboard.py` - **v4 dashboard** (reads from `paper_trading_state.json`)
 
 ## Why archived:
 

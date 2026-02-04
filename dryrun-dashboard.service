@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/var/www/html/codelabhaven/projects/dryrun
-ExecStart=/var/www/html/codelabhaven/projects/dryrun/venv/bin/python dashboard_v3.py
+ExecStart=/var/www/html/codelabhaven/projects/dryrun/venv/bin/python dashboard.py
 Restart=always
 RestartSec=10
 

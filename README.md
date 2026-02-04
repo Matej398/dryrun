@@ -86,7 +86,7 @@ systemctl restart dryrun-bot
 ```
 dryrun/
 ├── paper_trader.py          # Main bot (v4)
-├── dashboard_v3.py           # Web dashboard
+├── dashboard.py              # Web dashboard (v4)
 ├── dryrun-bot.service        # Systemd service for bot
 ├── dryrun-dashboard.service  # Systemd service for dashboard
 ├── requirements.txt          # Python dependencies
