@@ -76,3 +76,4 @@ systemctl restart dryrun-bot
 5. Entry: RSI crosses back from extreme (30 or 70)
 6. Stop: 1% | Target: 2% (2:1 RR)
 7. Risk: 2% per trade
+
