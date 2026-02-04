@@ -10,7 +10,7 @@ import os
 app = Flask(__name__)
 
 STATE_FILE = "paper_trading_state.json"
-STARTING_BALANCE = 1500  # Per strategy (v4)
+STARTING_BALANCE = 1000  # Per strategy (v4)
 
 # Map internal strategy names to display info and WebSocket symbols
 STRATEGIES_INFO = {
