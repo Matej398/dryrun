@@ -18,8 +18,20 @@ import pandas as pd
 import time
 from datetime import datetime
 import json
+import os
 from ta.momentum import RSIIndicator
 from ta.trend import CCIIndicator
+
+# Load .env file if running locally (not via systemd)
+from pathlib import Path
+env_file = Path(__file__).parent / '.env'
+if env_file.exists():
+    with open(env_file) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                os.environ.setdefault(key.strip(), value.strip())
 
 # =============================================================================
 # CONFIGURATION
@@ -85,10 +97,10 @@ STRATEGIES = {
 # State file for persistence
 STATE_FILE = 'paper_trading_state.json'
 
-# Telegram alerts (optional)
-TELEGRAM_ENABLED = False
-TELEGRAM_BOT_TOKEN = 'your_bot_token'
-TELEGRAM_CHAT_ID = 'your_chat_id'
+# Telegram alerts (loaded from environment variables)
+TELEGRAM_ENABLED = os.environ.get('TELEGRAM_ENABLED', 'true').lower() == 'true'
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
 
 
 # =============================================================================
@@ -383,6 +395,16 @@ def open_position(state, strategy_name, signal, current_price, config):
     
     log_message(f"🟢 {strategy_name} | {side} {position_size:.4f} @ ${entry_price:.2f} | SL: ${stop_loss:.2f} | TP: ${take_profit:.2f}")
     
+    # Send Telegram alert
+    alert_msg = f"🟢 <b>POSITION OPENED</b>\n\n"
+    alert_msg += f"<b>Strategy:</b> {strategy_name}\n"
+    alert_msg += f"<b>Direction:</b> {side}\n"
+    alert_msg += f"<b>Entry:</b> ${entry_price:,.2f}\n"
+    alert_msg += f"<b>Size:</b> {position_size:.6f}\n"
+    alert_msg += f"<b>Stop Loss:</b> ${stop_loss:,.2f}\n"
+    alert_msg += f"<b>Take Profit:</b> ${take_profit:,.2f}"
+    send_telegram_alert(alert_msg)
+    
     return position
 
 
@@ -450,6 +472,18 @@ def close_position(state, strategy_name, position, exit_price, exit_reason):
     emoji = "✅" if pnl > 0 else "❌"
     log_message(f"{emoji} {strategy_name} | CLOSED {position['side']} | PnL: ${pnl:.2f} ({pnl_pct:+.2f}%) | Reason: {exit_reason} | Capital: ${strategy_state['capital']:.2f}")
     
+    # Send Telegram alert
+    result_emoji = "✅" if pnl > 0 else "❌"
+    alert_msg = f"{result_emoji} <b>POSITION CLOSED</b>\n\n"
+    alert_msg += f"<b>Strategy:</b> {strategy_name}\n"
+    alert_msg += f"<b>Direction:</b> {position['side']}\n"
+    alert_msg += f"<b>Entry:</b> ${position['entry_price']:,.2f}\n"
+    alert_msg += f"<b>Exit:</b> ${exit_price:,.2f}\n"
+    alert_msg += f"<b>PnL:</b> ${pnl:+,.2f} ({pnl_pct:+.2f}%)\n"
+    alert_msg += f"<b>Reason:</b> {exit_reason}\n"
+    alert_msg += f"<b>New Capital:</b> ${strategy_state['capital']:,.2f}"
+    send_telegram_alert(alert_msg)
+    
     return trade
 
 
@@ -468,8 +502,23 @@ def send_telegram_alert(message):
     if not TELEGRAM_ENABLED:
         return
     
-    # TODO: Implement Telegram bot integration
-    pass
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        log_message("WARNING: Telegram enabled but token/chat_id not set")
+        return
+    
+    try:
+        import requests
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        data = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": message,
+            "parse_mode": "HTML"
+        }
+        response = requests.post(url, data=data, timeout=10)
+        if response.status_code != 200:
+            log_message(f"Telegram error: {response.status_code} - {response.text}")
+    except Exception as e:
+        log_message(f"Telegram send failed: {e}")
 
 
 # =============================================================================
@@ -482,7 +531,12 @@ def run_trading_bot():
     log_message("DRYRUN Paper Trading Bot v4.0 - STARTED")
     log_message("Strategies: BTC RSI (long-only), ETH CCI (H4+Daily), SOL CCI (H4+Daily)")
     log_message("Capital: $1000 per strategy")
+    log_message(f"Telegram: {'ENABLED' if TELEGRAM_ENABLED else 'DISABLED'}")
     log_message("="*70)
+    
+    # Send startup notification
+    if TELEGRAM_ENABLED:
+        send_telegram_alert("🤖 <b>DRYRUN Bot Started</b>\n\nStrategies: BTC RSI, ETH CCI, SOL CCI\nCapital: $1000/strategy")
     
     # Initialize
     exchange = init_exchange()
