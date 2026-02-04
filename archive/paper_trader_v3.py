@@ -63,10 +63,9 @@ STATE_FILE = "paper_state_v3.json"
 TRADES_FILE = "paper_trades_v3.json"
 LOG_FILE = "paper_log_v3.txt"
 
-# Telegram Config (set via environment variables)
-import os
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
-TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
+# Telegram Config
+TELEGRAM_BOT_TOKEN = "8593210645:AAGXvEw8qk4kKpAN6BrhlwBuu2-nOUN15l8"
+TELEGRAM_CHAT_ID = "6899291815"
 
 def send_telegram(message):
     """Send alert to Telegram"""

@@ -6,7 +6,6 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/var/www/html/codelabhaven/projects/dryrun
-EnvironmentFile=/var/www/html/codelabhaven/projects/dryrun/.env
 ExecStart=/var/www/html/codelabhaven/projects/dryrun/venv/bin/python paper_trader.py
 Restart=always
 RestartSec=10

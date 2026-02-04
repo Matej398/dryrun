@@ -1,17 +1,20 @@
-# DRYRUN v2 - Paper Trading Bot
+# DRYRUN v4 - Multi-Strategy Paper Trading Bot
 
-**Strategy:** H4 Permission + RSI Extreme  
-**Pair:** BTC only  
-**Win Rate (backtested):** 59.3%  
+**Strategies:**
+- BTC RSI Extreme + H4 filter (LONG-ONLY)
+- ETH CCI Extreme + H4 + Daily filter
+
+**Based on 3-year backtest validation (2023-2026)**  
 
 ## Features
 
-- ✅ BTC only trading
-- ✅ RSI Extreme entry trigger (30/70)
-- ✅ H4 bias permission filter
+- ✅ Multi-strategy: BTC (long-only) + ETH (both directions)
+- ✅ RSI & CCI indicators with H4/Daily filters
 - ✅ Live WebSocket prices (real-time)
-- ✅ Live unrealized P&L
-- ✅ Clean dashboard
+- ✅ Live unrealized P&L tracking
+- ✅ Telegram alerts for all trades
+- ✅ Clean dashboard with trade history
+- ✅ Auto-deploy via GitHub webhook
 
 ## Quick Setup
 
@@ -42,13 +45,7 @@ systemctl status dryrun-dashboard
 
 ## Dashboard
 
-Visit: `http://YOUR_VPS_IP:5050`
-
-## Git & auto-deploy
-
-- Repo: **https://github.com/Matej398/dryrun**
-- Push to `main` triggers the webhook: pull on VPS + restart `dryrun-bot` and `dryrun-dashboard`.
-- No `.env` is used; state/log files are gitignored so they stay on the VPS. See **DEPLOYMENT.md** for first-time push and webhook setup.
+Visit: `http://YOUR_VPS_IP:5051`
 
 ## Commands
 
@@ -69,11 +66,32 @@ systemctl restart dryrun-bot
 
 ## Strategy Logic
 
-1. Check H4 candle bias (bullish/bearish/neutral)
-2. If neutral → no trade
-3. If bullish → only look for longs
-4. If bearish → only look for shorts
-5. Entry: RSI crosses back from extreme (30 or 70)
-6. Stop: 1% | Target: 2% (2:1 RR)
-7. Risk: 2% per trade
+### BTC RSI (Long-Only)
+1. H4 filter: Only trade longs when H4 is bullish or neutral
+2. Entry: RSI crosses above 30 (oversold bounce)
+3. Stop: -1% | Target: +2% (2:1 RR)
+4. Risk: 2% per trade
+5. Starting capital: $1,500
 
+### ETH CCI (Both Directions)
+1. H4 + Daily filters: Both must align with direction
+2. Entry Long: CCI crosses above -100 (oversold)
+3. Entry Short: CCI crosses below +100 (overbought)
+4. Stop: -1% | Target: +2% (2:1 RR)
+5. Risk: 2% per trade
+6. Starting capital: $1,500
+
+## Project Structure
+
+```
+dryrun/
+├── paper_trader.py          # Main bot (v4)
+├── dashboard_v3.py           # Web dashboard
+├── dryrun-bot.service        # Systemd service for bot
+├── dryrun-dashboard.service  # Systemd service for dashboard
+├── requirements.txt          # Python dependencies
+├── README.md                 # This file
+├── DEPLOYMENT.md             # Git & webhook setup guide
+├── archive/                  # Old versions (v2, v3)
+└── .env                      # Telegram credentials (not in git)
+```
