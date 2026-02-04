@@ -65,3 +65,29 @@ git push origin main
 ```
 
 The webhook on the VPS will pull and restart the services. No need to SSH and restart manually (unless the webhook is down).
+
+## Security considerations
+
+The sudoers configuration is designed with security in mind:
+
+1. **Webhook signature verification**: The webhook handler verifies GitHub's HMAC-SHA256 signature, so only authentic GitHub webhooks are processed.
+
+2. **Restricted sudo commands**: The sudoers file only allows:
+   - Specific service restarts (e.g., `dryrun-bot`, not wildcards)
+   - Git commands limited to specific repository paths (using `-C` flag)
+   - NPM commands restricted to specific directories (using `--prefix`)
+
+3. **No wildcards**: Commands don't use `*` wildcards that could be exploited.
+
+4. **Read-only file permissions**: The sudoers file is set to `0440` (read-only) to prevent modification.
+
+**Risk vs convenience trade-off**: Allowing www-data to run these commands is a calculated risk. If your web server is compromised, an attacker could restart services or pull code. However:
+- They can't escalate to full root access
+- They can't modify arbitrary files
+- They can't run arbitrary commands
+- The webhook secret prevents unauthorized webhook calls
+
+If you need higher security, consider:
+- Running the webhook handler as a dedicated user (not www-data)
+- Using SSH keys with deploy keys instead of HTTPS
+- Implementing IP whitelisting for GitHub webhook IPs
