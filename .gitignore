@@ -1,0 +1,34 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment / secrets (if you add .env later)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Local state and logs (keep on VPS only; do not overwrite on deploy)
+paper_state*.json
+paper_state*.json.save
+paper_trades*.json
+paper_log*.txt
+paper_trading_state.json
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo

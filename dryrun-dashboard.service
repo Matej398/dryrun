@@ -1,0 +1,14 @@
+[Unit]
+Description=DRYRUN v2 Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/html/codelabhaven/projects/dryrun
+ExecStart=/var/www/html/codelabhaven/projects/dryrun/venv/bin/python dashboard_v3.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

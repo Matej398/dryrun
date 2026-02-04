@@ -1,0 +1,14 @@
+[Unit]
+Description=DRYRUN v2 Paper Trading Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/html/codelabhaven/projects/dryrun
+ExecStart=/var/www/html/codelabhaven/projects/dryrun/venv/bin/python paper_trader.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
