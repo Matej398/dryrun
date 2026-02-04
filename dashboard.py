@@ -380,7 +380,7 @@ DASHBOARD_HTML = """
                 <div id="ws-dot" class="ws-dot"></div>
                 <span id="ws-status">Connecting...</span>
             </div>
-            <div>Auto-refresh: 60s | BTC=H4+LongOnly, ETH=H4+Daily, SOL=H4+Daily | $1500/strategy</div>
+            <div>Auto-refresh: 60s | BTC=H4+LongOnly, ETH=H4+Daily, SOL=H4+Daily | $1000/strategy</div>
         </div>
     </div>
     

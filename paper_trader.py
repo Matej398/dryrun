@@ -5,7 +5,7 @@ Based on 3-year backtest validation (Feb 2026)
 CHANGES FROM v3:
 - REMOVED: BNB Stochastic (failed 3-year backtest, -100% return)
 - KEPT: BTC RSI + H4 (long-only), ETH CCI + H4 + Daily
-- Capital allocation: $1500 per strategy (was $1000)
+- Capital allocation: $1000 per strategy
 - NO time filters (made performance worse in backtest)
 
 VALIDATED STRATEGIES:
@@ -31,7 +31,7 @@ API_KEY = 'your_testnet_api_key'
 API_SECRET = 'your_testnet_api_secret'
 
 # Capital allocation (per strategy)
-INITIAL_CAPITAL_PER_STRATEGY = 1500  # $1500 each
+INITIAL_CAPITAL_PER_STRATEGY = 1000  # $1000 each
 
 # Strategy configurations
 STRATEGIES = {
@@ -454,7 +454,7 @@ def run_trading_bot():
     log_message("="*70)
     log_message("DRYRUN Paper Trading Bot v4.0 - STARTED")
     log_message("Strategies: BTC RSI (long-only), ETH CCI (H4+Daily), SOL CCI (H4+Daily)")
-    log_message("Capital: $1500 per strategy")
+    log_message("Capital: $1000 per strategy")
     log_message("="*70)
     
     # Initialize

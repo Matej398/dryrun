@@ -80,7 +80,7 @@ systemctl restart dryrun-bot
 3. Entry Short: CCI crosses below +100 (overbought)
 4. Stop: -1% | Target: +2% (2:1 RR)
 5. Risk: 2% per trade
-6. Starting capital: $1,500
+6. Starting capital: $1,000
 
 ### SOL CCI (Both Directions)
 1. H4 + Daily filters: Both must align with direction
@@ -88,7 +88,7 @@ systemctl restart dryrun-bot
 3. Entry Short: CCI crosses below +100 (overbought)
 4. Stop: -1% | Target: +2% (2:1 RR)
 5. Risk: 2% per trade
-6. Starting capital: $1,500
+6. Starting capital: $1,000
 
 ## Project Structure
 
