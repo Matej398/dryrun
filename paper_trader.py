@@ -70,10 +70,10 @@ STRATEGIES = {
 # State file for persistence
 STATE_FILE = 'paper_trading_state.json'
 
-# Telegram alerts (optional)
-TELEGRAM_ENABLED = False
-TELEGRAM_BOT_TOKEN = 'your_bot_token'
-TELEGRAM_CHAT_ID = 'your_chat_id'
+# Telegram alerts
+TELEGRAM_ENABLED = True
+TELEGRAM_BOT_TOKEN = '8593210645:AAGXvEw8qk4kKpAN6BrhlwBuu2-nOUN15l8'
+TELEGRAM_CHAT_ID = '6899291815'
 
 
 # =============================================================================
@@ -336,6 +336,10 @@ def open_position(state, strategy_name, signal, current_price, config):
     
     log_message(f"🟢 {strategy_name} | {side} {position_size:.4f} @ ${entry_price:.2f} | SL: ${stop_loss:.2f} | TP: ${take_profit:.2f}")
     
+    # Send Telegram alert
+    emoji = "🟢" if side == 'LONG' else "🔴"
+    send_telegram_alert(f"{emoji} <b>{strategy_name}</b> {side}\nEntry: ${entry_price:.2f}\nSL: ${stop_loss:.2f}\nTP: ${take_profit:.2f}")
+    
     return position
 
 
@@ -403,6 +407,10 @@ def close_position(state, strategy_name, position, exit_price, exit_reason):
     emoji = "✅" if pnl > 0 else "❌"
     log_message(f"{emoji} {strategy_name} | CLOSED {position['side']} | PnL: ${pnl:.2f} ({pnl_pct:+.2f}%) | Reason: {exit_reason} | Capital: ${strategy_state['capital']:.2f}")
     
+    # Send Telegram alert
+    result = 'WIN' if pnl > 0 else 'LOSS'
+    send_telegram_alert(f"{emoji} <b>{strategy_name}</b> {position['side']} closed\nExit: ${exit_price:.2f}\nPnL: <b>${pnl:+.2f}</b> ({pnl_pct:+.2f}%)\nResult: {result}\nCapital: ${strategy_state['capital']:.2f}")
+    
     return trade
 
 
@@ -421,8 +429,16 @@ def send_telegram_alert(message):
     if not TELEGRAM_ENABLED:
         return
     
-    # TODO: Implement Telegram bot integration
-    pass
+    try:
+        import requests
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        requests.post(url, data={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": message,
+            "parse_mode": "HTML"
+        }, timeout=5)
+    except Exception as e:
+        log_message(f"Telegram error: {e}")
 
 
 # =============================================================================
