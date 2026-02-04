@@ -46,14 +46,47 @@ DASHBOARD_HTML = """
             display: flex;
             gap: 15px;
             align-items: flex-start;
+            height: calc(100vh - 180px);
         }
         .left-panel {
             width: 400px;
             flex-shrink: 0;
+            height: 100%;
+            overflow-y: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .left-panel::-webkit-scrollbar {
+            width: 6px;
+            background: transparent;
+        }
+        .left-panel:hover::-webkit-scrollbar-thumb {
+            background: #2D3748;
+            border-radius: 3px;
+        }
+        .left-panel:hover {
+            scrollbar-width: thin;
+            scrollbar-color: #2D3748 transparent;
         }
         .right-panel {
             flex: 1;
             min-width: 0;
+            height: 100%;
+            overflow-y: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .right-panel::-webkit-scrollbar {
+            width: 6px;
+            background: transparent;
+        }
+        .right-panel:hover::-webkit-scrollbar-thumb {
+            background: #2D3748;
+            border-radius: 3px;
+        }
+        .right-panel:hover {
+            scrollbar-width: thin;
+            scrollbar-color: #2D3748 transparent;
         }
         h1 { color: #f0f6fc; margin-bottom: 3px; font-size: 25px; }
         .subtitle { color: #67778E; margin-bottom: 10px; font-size: 13px; }
@@ -78,7 +111,7 @@ DASHBOARD_HTML = """
             display: flex;
             flex-direction: column;
             gap: 12px;
-            margin-bottom: 15px;
+            padding-bottom: 20px;
         }
         
         .strategy-card {
