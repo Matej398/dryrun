@@ -48,7 +48,7 @@ DASHBOARD_HTML = """
             display: flex;
             gap: 15px;
             align-items: flex-start;
-            height: calc(100vh - 180px);
+            height: calc(100vh - 200px);
         }
         .left-panel {
             width: 400px;
@@ -68,6 +68,7 @@ DASHBOARD_HTML = """
             flex: 1;
             overflow-y: scroll;
             position: relative;
+            padding-bottom: 20px;
         }
         .scroll-content::-webkit-scrollbar {
             width: 8px;
