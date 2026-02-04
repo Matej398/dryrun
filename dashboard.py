@@ -40,6 +40,8 @@ DASHBOARD_HTML = """
             color: #c9d1d9; 
             padding: 10px;
             padding-bottom: 50px;
+            overflow: hidden;
+            height: 100vh;
         }
         .container { max-width: 100%; margin: 0 auto; padding: 0 10px; }
         .main-content {
@@ -52,54 +54,44 @@ DASHBOARD_HTML = """
             width: 400px;
             flex-shrink: 0;
             height: 100%;
-            overflow-y: scroll;
-            position: relative;
-        }
-        .left-panel::-webkit-scrollbar {
-            width: 8px;
-            background: transparent;
-        }
-        .left-panel::-webkit-scrollbar-thumb {
-            background: rgba(45, 55, 72, 0);
-            border-radius: 4px;
-            transition: background 0.3s ease;
-        }
-        .left-panel:hover::-webkit-scrollbar-thumb {
-            background: rgba(45, 55, 72, 0.8);
-        }
-        .left-panel::-webkit-scrollbar-thumb:hover {
-            background: rgba(65, 80, 100, 0.9);
+            display: flex;
+            flex-direction: column;
         }
         .right-panel {
             flex: 1;
             min-width: 0;
             height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .scroll-content {
+            flex: 1;
             overflow-y: scroll;
             position: relative;
         }
-        .right-panel::-webkit-scrollbar {
+        .scroll-content::-webkit-scrollbar {
             width: 8px;
             background: transparent;
         }
-        .right-panel::-webkit-scrollbar-thumb {
+        .scroll-content::-webkit-scrollbar-thumb {
             background: rgba(45, 55, 72, 0);
             border-radius: 4px;
             transition: background 0.3s ease;
         }
-        .right-panel:hover::-webkit-scrollbar-thumb {
+        .scroll-content:hover::-webkit-scrollbar-thumb {
             background: rgba(45, 55, 72, 0.8);
         }
-        .right-panel::-webkit-scrollbar-thumb:hover {
+        .scroll-content::-webkit-scrollbar-thumb:hover {
             background: rgba(65, 80, 100, 0.9);
         }
         /* Firefox */
         @supports (scrollbar-color: auto) {
-            .left-panel, .right-panel {
+            .scroll-content {
                 scrollbar-width: thin;
                 scrollbar-color: transparent transparent;
                 transition: scrollbar-color 0.3s ease;
             }
-            .left-panel:hover, .right-panel:hover {
+            .scroll-content:hover {
                 scrollbar-color: rgba(45, 55, 72, 0.8) transparent;
             }
         }
@@ -107,17 +99,14 @@ DASHBOARD_HTML = """
         .subtitle { color: #67778E; margin-bottom: 10px; font-size: 13px; }
         h2 { color: #67778E; margin: 10px 0 6px; font-size: 13px; text-transform: uppercase; }
         .section-header {
-            position: sticky;
-            top: 0;
-            z-index: 1;
             background: #0A0C0F;
             border: 1px solid #171E27;
             padding: 10px 12px;
             margin-bottom: 10px;
-            margin-right: 8px;
             color: #67778E;
             font-size: 13px;
             text-transform: uppercase;
+            flex-shrink: 0;
         }
         .section-header span {
             color: #f0f6fc;
@@ -338,6 +327,7 @@ DASHBOARD_HTML = """
         <div class="main-content">
             <div class="left-panel">
                 <div class="section-header">Strategies<span>({{ strategies|length }})</span></div>
+                <div class="scroll-content">
                 <div class="strategies-grid">
                     {% for symbol, data in strategies.items() %}
                     <div class="strategy-card" data-symbol="{{ symbol }}">
@@ -399,10 +389,12 @@ DASHBOARD_HTML = """
             </div>
             {% endfor %}
             </div>
+                </div>
         </div>
         
         <div class="right-panel">
                 <div class="section-header">Recent Trades<span>({{ trades|length }})</span></div>
+                <div class="scroll-content">
                 {% if trades %}
                 <table class="trades-table" id="trades-table">
                     <thead>
@@ -438,6 +430,7 @@ DASHBOARD_HTML = """
                     No trades yet - waiting for signals
                 </div>
                 {% endif %}
+                </div>
             </div>
         </div>
         
