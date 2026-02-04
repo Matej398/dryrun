@@ -70,10 +70,11 @@ STRATEGIES = {
 # State file for persistence
 STATE_FILE = 'paper_trading_state.json'
 
-# Telegram alerts
-TELEGRAM_ENABLED = True
-TELEGRAM_BOT_TOKEN = '8593210645:AAGXvEw8qk4kKpAN6BrhlwBuu2-nOUN15l8'
-TELEGRAM_CHAT_ID = '6899291815'
+# Telegram alerts (set via environment variables)
+import os
+TELEGRAM_ENABLED = os.environ.get('TELEGRAM_ENABLED', 'true').lower() == 'true'
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
 
 
 # =============================================================================
