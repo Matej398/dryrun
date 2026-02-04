@@ -352,7 +352,7 @@ DASHBOARD_HTML = """
                     <tbody>
                         {% for trade in trades[-100:]|reverse %}
                         <tr class="trade-row{% if loop.index > 50 %} hidden-row{% endif %}" data-row="{{ loop.index }}">
-                            <td>{{ trade.symbol }}</td>
+                            <td>{{ trade.strategy_name }}</td>
                             <td><span class="badge badge-{{ trade.direction }}">{{ trade.direction.upper() }}</span></td>
                             <td>${{ "%.2f"|format(trade.entry_price) }}</td>
                             <td>${{ "%.2f"|format(trade.exit_price) }}</td>
@@ -553,6 +553,7 @@ def dashboard():
         for trade in closed_trades:
             all_trades.append({
                 'symbol': ws_symbol,
+                'strategy_name': info['name'],  # Full strategy name
                 'direction': trade.get('side', 'long').lower(),
                 'entry_price': trade.get('entry_price', 0),
                 'exit_price': trade.get('exit_price', 0),
