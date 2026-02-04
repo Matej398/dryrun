@@ -2,13 +2,14 @@
 
 **Strategies:**
 - BTC RSI Extreme + H4 filter (LONG-ONLY)
-- ETH CCI Extreme + H4 + Daily filter
+- ETH CCI Extreme + H4 + Daily filter  
+- SOL CCI Extreme + H4 + Daily filter
 
 **Based on 3-year backtest validation (2023-2026)**  
 
 ## Features
 
-- ✅ Multi-strategy: BTC (long-only) + ETH (both directions)
+- ✅ Multi-strategy: BTC (long-only) + ETH (both directions) + SOL (both directions)
 - ✅ RSI & CCI indicators with H4/Daily filters
 - ✅ Live WebSocket prices (real-time)
 - ✅ Live unrealized P&L tracking
@@ -74,6 +75,14 @@ systemctl restart dryrun-bot
 5. Starting capital: $1,500
 
 ### ETH CCI (Both Directions)
+1. H4 + Daily filters: Both must align with direction
+2. Entry Long: CCI crosses above -100 (oversold)
+3. Entry Short: CCI crosses below +100 (overbought)
+4. Stop: -1% | Target: +2% (2:1 RR)
+5. Risk: 2% per trade
+6. Starting capital: $1,500
+
+### SOL CCI (Both Directions)
 1. H4 + Daily filters: Both must align with direction
 2. Entry Long: CCI crosses above -100 (oversold)
 3. Entry Short: CCI crosses below +100 (overbought)

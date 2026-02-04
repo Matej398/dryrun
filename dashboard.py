@@ -16,6 +16,7 @@ STARTING_BALANCE = 1500  # Per strategy (v4)
 STRATEGIES_INFO = {
     'BTC_RSI': {'name': 'BTC RSI Extreme', 'filters': 'H4 + LONG-ONLY', 'ws': 'btcusdt', 'symbol': 'BTCUSDT'},
     'ETH_CCI': {'name': 'ETH CCI Extreme', 'filters': 'H4+Daily', 'ws': 'ethusdt', 'symbol': 'ETHUSDT'},
+    'SOL_CCI': {'name': 'SOL CCI Extreme', 'filters': 'H4+Daily', 'ws': 'solusdt', 'symbol': 'SOLUSDT'},
 }
 
 DASHBOARD_HTML = """
@@ -254,7 +255,7 @@ DASHBOARD_HTML = """
 <body>
     <div class="container">
         <h1><span class="live-dot"></span>DRYRUN v4.0 Dashboard</h1>
-        <div class="subtitle">Multi-Strategy Paper Trading | BTC RSI (Long-Only) + ETH CCI (H4+Daily)</div>
+        <div class="subtitle">Multi-Strategy Paper Trading | BTC RSI (Long-Only) + ETH CCI (H4+Daily) + SOL CCI (H4+Daily)</div>
         
         <div class="portfolio-summary">
             <div>
@@ -379,7 +380,7 @@ DASHBOARD_HTML = """
                 <div id="ws-dot" class="ws-dot"></div>
                 <span id="ws-status">Connecting...</span>
             </div>
-            <div>Auto-refresh: 60s | BTC=H4+LongOnly, ETH=H4+Daily | $1500/strategy</div>
+            <div>Auto-refresh: 60s | BTC=H4+LongOnly, ETH=H4+Daily, SOL=H4+Daily | $1500/strategy</div>
         </div>
     </div>
     
@@ -389,7 +390,7 @@ DASHBOARD_HTML = """
         let ws;
         
         function connectWebSocket() {
-            ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker');
+            ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker/solusdt@ticker');
             
             ws.onopen = function() {
                 document.getElementById('ws-dot').classList.add('connected');

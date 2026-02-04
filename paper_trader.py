@@ -64,6 +64,21 @@ STRATEGIES = {
         'indicator': 'cci',
         'cci_oversold': -100,
         'cci_overbought': 100
+    },
+    'SOL_CCI': {
+        'symbol': 'SOL/USDT',
+        'timeframe': '15m',
+        'enabled': True,
+        'capital': INITIAL_CAPITAL_PER_STRATEGY,
+        'risk_per_trade': 0.02,
+        'stop_loss_pct': 0.01,
+        'take_profit_pct': 0.02,
+        'time_stop_hours': 48,
+        'use_h4_filter': True,
+        'use_daily_filter': True,
+        'indicator': 'cci',
+        'cci_oversold': -100,
+        'cci_overbought': 100
     }
 }
 
@@ -93,6 +108,11 @@ def load_state():
                 'closed_trades': []
             },
             'ETH_CCI': {
+                'capital': INITIAL_CAPITAL_PER_STRATEGY,
+                'positions': [],
+                'closed_trades': []
+            },
+            'SOL_CCI': {
                 'capital': INITIAL_CAPITAL_PER_STRATEGY,
                 'positions': [],
                 'closed_trades': []
@@ -433,7 +453,7 @@ def run_trading_bot():
     """Main trading loop"""
     log_message("="*70)
     log_message("DRYRUN Paper Trading Bot v4.0 - STARTED")
-    log_message("Strategies: BTC RSI (long-only), ETH CCI (H4+Daily)")
+    log_message("Strategies: BTC RSI (long-only), ETH CCI (H4+Daily), SOL CCI (H4+Daily)")
     log_message("Capital: $1500 per strategy")
     log_message("="*70)
     
@@ -473,7 +493,7 @@ def run_trading_bot():
                 if len(strategy_state['positions']) == 0:
                     if strategy_name == 'BTC_RSI':
                         signal = check_btc_rsi_signal(df_15m, df_4h, config)
-                    elif strategy_name == 'ETH_CCI':
+                    elif strategy_name in ['ETH_CCI', 'SOL_CCI']:
                         signal = check_eth_cci_signal(df_15m, df_4h, df_daily, config)
                     else:
                         signal = 0
@@ -484,7 +504,8 @@ def run_trading_bot():
             
             # Print status
             if current_time.minute % 15 == 0:  # Every 15 minutes
-                log_message(f"Status | BTC: ${state['BTC_RSI']['capital']:.2f} | ETH: ${state['ETH_CCI']['capital']:.2f} | Total: ${state['BTC_RSI']['capital'] + state['ETH_CCI']['capital']:.2f}")
+                total = state['BTC_RSI']['capital'] + state['ETH_CCI']['capital'] + state['SOL_CCI']['capital']
+                log_message(f"Status | BTC: ${state['BTC_RSI']['capital']:.2f} | ETH: ${state['ETH_CCI']['capital']:.2f} | SOL: ${state['SOL_CCI']['capital']:.2f} | Total: ${total:.2f}")
             
             # Sleep until next check (check every 1 minute)
             time.sleep(60)
@@ -512,7 +533,7 @@ def generate_performance_report():
     total_initial = 0
     total_current = 0
     
-    for strategy_name in ['BTC_RSI', 'ETH_CCI']:
+    for strategy_name in ['BTC_RSI', 'ETH_CCI', 'SOL_CCI']:
         strategy_state = state[strategy_name]
         initial = INITIAL_CAPITAL_PER_STRATEGY
         current = strategy_state['capital']
