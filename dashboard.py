@@ -91,6 +91,22 @@ DASHBOARD_HTML = """
         h1 { color: #f0f6fc; margin-bottom: 3px; font-size: 25px; }
         .subtitle { color: #67778E; margin-bottom: 10px; font-size: 13px; }
         h2 { color: #67778E; margin: 10px 0 6px; font-size: 13px; text-transform: uppercase; }
+        .section-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #0A0C0F;
+            border: 1px solid #171E27;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+            color: #67778E;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        .section-header span {
+            color: #f0f6fc;
+            margin-left: 6px;
+        }
         
         .portfolio-summary {
             background: linear-gradient(135deg, #0E1218 0%, #0E1218 100%);
@@ -305,7 +321,7 @@ DASHBOARD_HTML = """
         
         <div class="main-content">
             <div class="left-panel">
-                <h2>Strategies</h2>
+                <div class="section-header">Strategies<span>({{ strategies|length }})</span></div>
                 <div class="strategies-grid">
                     {% for symbol, data in strategies.items() %}
                     <div class="strategy-card" data-symbol="{{ symbol }}">
@@ -370,7 +386,7 @@ DASHBOARD_HTML = """
         </div>
         
         <div class="right-panel">
-                <h2>Recent Trades (All Strategies) - {{ trades|length }} total</h2>
+                <div class="section-header">Recent Trades<span>({{ trades|length }})</span></div>
                 {% if trades %}
                 <table class="trades-table" id="trades-table">
                     <thead>
