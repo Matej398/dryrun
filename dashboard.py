@@ -52,41 +52,56 @@ DASHBOARD_HTML = """
             width: 400px;
             flex-shrink: 0;
             height: 100%;
-            overflow-y: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+            overflow-y: scroll;
+            position: relative;
         }
         .left-panel::-webkit-scrollbar {
-            width: 6px;
+            width: 8px;
             background: transparent;
         }
-        .left-panel:hover::-webkit-scrollbar-thumb {
-            background: #2D3748;
-            border-radius: 3px;
+        .left-panel::-webkit-scrollbar-thumb {
+            background: rgba(45, 55, 72, 0);
+            border-radius: 4px;
+            transition: background 0.3s ease;
         }
-        .left-panel:hover {
-            scrollbar-width: thin;
-            scrollbar-color: #2D3748 transparent;
+        .left-panel:hover::-webkit-scrollbar-thumb {
+            background: rgba(45, 55, 72, 0.8);
+        }
+        .left-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(65, 80, 100, 0.9);
         }
         .right-panel {
             flex: 1;
             min-width: 0;
             height: 100%;
-            overflow-y: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+            overflow-y: scroll;
+            position: relative;
         }
         .right-panel::-webkit-scrollbar {
-            width: 6px;
+            width: 8px;
             background: transparent;
         }
-        .right-panel:hover::-webkit-scrollbar-thumb {
-            background: #2D3748;
-            border-radius: 3px;
+        .right-panel::-webkit-scrollbar-thumb {
+            background: rgba(45, 55, 72, 0);
+            border-radius: 4px;
+            transition: background 0.3s ease;
         }
-        .right-panel:hover {
-            scrollbar-width: thin;
-            scrollbar-color: #2D3748 transparent;
+        .right-panel:hover::-webkit-scrollbar-thumb {
+            background: rgba(45, 55, 72, 0.8);
+        }
+        .right-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(65, 80, 100, 0.9);
+        }
+        /* Firefox */
+        @supports (scrollbar-color: auto) {
+            .left-panel, .right-panel {
+                scrollbar-width: thin;
+                scrollbar-color: transparent transparent;
+                transition: scrollbar-color 0.3s ease;
+            }
+            .left-panel:hover, .right-panel:hover {
+                scrollbar-color: rgba(45, 55, 72, 0.8) transparent;
+            }
         }
         h1 { color: #f0f6fc; margin-bottom: 3px; font-size: 25px; }
         .subtitle { color: #67778E; margin-bottom: 10px; font-size: 13px; }
@@ -94,11 +109,12 @@ DASHBOARD_HTML = """
         .section-header {
             position: sticky;
             top: 0;
-            z-index: 10;
+            z-index: 1;
             background: #0A0C0F;
             border: 1px solid #171E27;
             padding: 10px 12px;
             margin-bottom: 10px;
+            margin-right: 8px;
             color: #67778E;
             font-size: 13px;
             text-transform: uppercase;
