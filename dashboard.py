@@ -285,6 +285,7 @@ DASHBOARD_HTML = """
                         </div>
                         
                         <div class="live-price neutral" id="price-{{ symbol }}">Loading...</div>
+                        <div style="font-size: 11px; color: #67778E; margin-bottom: 8px;">Starting: ${{ "{:,.0f}".format(starting_balance) }}</div>
                 
                 <div class="strategy-stats">
                     <div class="stat-item">
@@ -482,7 +483,8 @@ def load_state():
     # Default state matching v4 format
     return {
         'BTC_RSI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
-        'ETH_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []}
+        'ETH_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
+        'SOL_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []}
     }
 
 
@@ -505,6 +507,9 @@ def dashboard():
         })
         
         balance = strat_state.get('capital', STARTING_BALANCE)
+        # Display migration: show $1000-base if state file still has old $1500-base
+        if state.get('_schema') != 'v4_1000' and 1400 <= balance <= 1600:
+            balance = 1000 + (balance - 1500)
         closed_trades = strat_state.get('closed_trades', [])
         positions = strat_state.get('positions', [])
         
@@ -578,6 +583,7 @@ def dashboard():
         total_trades=total_trades,
         trades=all_trades,
         positions_json=json.dumps(positions_json),
+        starting_balance=STARTING_BALANCE,
     )
 
 

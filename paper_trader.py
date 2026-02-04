@@ -120,6 +120,33 @@ def load_state():
         }
 
 
+# Old per-strategy capital before we switched to $1000 (one-time migration)
+_OLD_CAPITAL_PER_STRATEGY = 1500
+
+
+def _migrate_state_to_1000(state):
+    """
+    One-time migration: convert state from $1500/strategy to $1000/strategy.
+    Preserves PnL: new_capital = 1000 + (old_capital - 1500).
+    Returns (state, True) if migration was done, (state, False) otherwise.
+    """
+    if state.get('_schema') == 'v4_1000':
+        return state, False
+    migrated = False
+    for strategy_name in STRATEGIES:
+        if strategy_name not in state:
+            continue
+        cap = state[strategy_name].get('capital', INITIAL_CAPITAL_PER_STRATEGY)
+        # Only migrate if clearly old 1500-base (e.g. 1500 or 1470 after loss)
+        if 1400 <= cap <= 1600:
+            new_cap = 1000 + (cap - _OLD_CAPITAL_PER_STRATEGY)
+            state[strategy_name]['capital'] = round(new_cap, 2)
+            migrated = True
+    if migrated:
+        state['_schema'] = 'v4_1000'
+    return state, migrated
+
+
 def save_state(state):
     """Save trading state to file"""
     with open(STATE_FILE, 'w') as f:
@@ -460,6 +487,10 @@ def run_trading_bot():
     # Initialize
     exchange = init_exchange()
     state = load_state()
+    state, migrated = _migrate_state_to_1000(state)
+    if migrated:
+        save_state(state)
+        log_message("Migrated state from $1500 to $1000 per strategy (PnL preserved)")
     
     # Main loop
     while True:
@@ -525,6 +556,7 @@ def run_trading_bot():
 def generate_performance_report():
     """Generate performance report from state file"""
     state = load_state()
+    state, _ = _migrate_state_to_1000(state)  # use migrated values for report (don't save)
     
     print("\n" + "="*70)
     print("PERFORMANCE REPORT")
