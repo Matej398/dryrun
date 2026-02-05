@@ -4,13 +4,16 @@ DRYRUN v5.1 - Dynamic Multi-Strategy Dashboard
 - LEVERAGE/SPOT type badges
 - Risk exposure in portfolio summary
 - Hold time in trades table
-- Last Updated timestamp
+- Animated pixel bot header with typewriter messages
 """
 from flask import Flask, render_template_string, jsonify
 from datetime import datetime
 import json
 import os
 import re
+
+# Import bot components
+from dashboard_bot import BOT_CSS, BOT_HTML, BOT_JS
 
 app = Flask(__name__)
 
@@ -419,15 +422,13 @@ DASHBOARD_HTML = """
             color: #67778E;
             background: #0E1218;
         }
+        
+        """ + BOT_CSS + """
     </style>
 </head>
 <body>
     <div class="container">
-        <h1><span class="live-dot"></span>DRYRUN v5.1 Dashboard</h1>
-        <div class="subtitle">
-            <span>{{ strategies|length }} Strategies | ${{ "{:,.0f}".format(total_starting) }} Capital</span>
-            <span class="last-updated">Updated: {{ last_updated }}</span>
-        </div>
+        """ + BOT_HTML + """
         
         <div class="portfolio-summary">
             <div class="portfolio-balance {{ 'positive' if total_pnl >= 0 else 'negative' }}">${{ "%.2f"|format(total_balance) }}</div>
@@ -656,6 +657,8 @@ DASHBOARD_HTML = """
         connectWebSocket();
         
         setTimeout(function() { location.reload(); }, 60000);
+        
+        """ + BOT_JS + """
     </script>
 </body>
 </html>
