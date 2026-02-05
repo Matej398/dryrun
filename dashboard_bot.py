@@ -179,22 +179,22 @@ BOT_HTML = """
             <!-- Right Eye (1x1) -->
             <rect class="bot-eye" x="6" y="2" width="1" height="1"/>
             
-            <!-- Closed eyes (for sleep - horizontal line) -->
+            <!-- Closed eyes (for sleep) -->
             <rect class="bot-eye-closed" x="3" y="2" width="1" height="1"/>
             <rect class="bot-eye-closed" x="6" y="2" width="1" height="1"/>
             
             <!-- Happy Mouth (smile) -->
             <g class="bot-mouth-happy">
                 <rect class="bot-mouth" x="2" y="4" width="1" height="1"/>
-                <rect class="bot-mouth" x="3" y="5" width="4" height="1"/>
                 <rect class="bot-mouth" x="7" y="4" width="1" height="1"/>
+                <rect class="bot-mouth" x="3" y="5" width="4" height="1"/>
             </g>
             
             <!-- Sad Mouth (frown - hidden by default) -->
             <g class="bot-mouth-sad">
                 <rect class="bot-mouth" x="2" y="5" width="1" height="1"/>
-                <rect class="bot-mouth" x="3" y="4" width="4" height="1"/>
                 <rect class="bot-mouth" x="7" y="5" width="1" height="1"/>
+                <rect class="bot-mouth" x="3" y="4" width="4" height="1"/>
             </g>
         </svg>
     </div>
