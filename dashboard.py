@@ -1,36 +1,179 @@
 """
-DRYRUN v4.0 - Multi-Strategy Dashboard
-Shows 8 strategies: 5 Scalp (15m) + 3 Swing (Daily)
-Updated for paper_trader_v4.py compatibility
+DRYRUN v5.0 - Dynamic Multi-Strategy Dashboard
+- Reads strategies dynamically from state file
+- Advanced metrics: Profit Factor, R:R, Exit Breakdown, Streaks, Hold Time
+- Portfolio Risk Monitor with exposure tracking
+- Circuit Breaker Warnings for drawdowns
+- Last Updated timestamp
 """
 from flask import Flask, render_template_string, jsonify
+from datetime import datetime
 import json
 import os
+import re
 
 app = Flask(__name__)
 
 STATE_FILE = "paper_trading_state.json"
-STARTING_BALANCE = 1000  # Per strategy (v4)
+STARTING_BALANCE = 1000  # Per strategy
 
-# Map internal strategy names to display info and WebSocket symbols
-STRATEGIES_INFO = {
-    # Scalp strategies (15m)
-    'BTC_RSI': {'name': 'BTC RSI Extreme', 'filters': 'H4 + LONG-ONLY', 'ws': 'btcusdt', 'symbol': 'BTCUSDT', 'pair': 'BTC/USDT'},
-    'ETH_CCI': {'name': 'ETH CCI Extreme', 'filters': 'H4+Daily', 'ws': 'ethusdt', 'symbol': 'ETHUSDT', 'pair': 'ETH/USDT'},
-    'SOL_CCI': {'name': 'SOL CCI Extreme', 'filters': 'H4+Daily', 'ws': 'solusdt', 'symbol': 'SOLUSDT', 'pair': 'SOL/USDT'},
-    'ADA_CCI': {'name': 'ADA CCI Extreme', 'filters': 'H4+Daily', 'ws': 'adausdt', 'symbol': 'ADAUSDT', 'pair': 'ADA/USDT'},
-    'AVAX_CCI': {'name': 'AVAX CCI Extreme', 'filters': 'H4+Daily', 'ws': 'avaxusdt', 'symbol': 'AVAXUSDT', 'pair': 'AVAX/USDT'},
-    # Swing strategies (Daily)
-    'BTC_VOL': {'name': 'BTC Volume Surge', 'filters': 'Daily + LONG-ONLY', 'ws': 'btcusdt', 'symbol': 'BTCUSDT', 'pair': 'BTC/USDT'},
-    'ETH_VOL': {'name': 'ETH Volume Surge', 'filters': 'Daily + LONG-ONLY', 'ws': 'ethusdt', 'symbol': 'ETHUSDT', 'pair': 'ETH/USDT'},
-    'BNB_OBV': {'name': 'BNB OBV Divergence', 'filters': 'Daily + LONG-ONLY', 'ws': 'bnbusdt', 'symbol': 'BNBUSDT', 'pair': 'BNB/USDT'},
-}
+
+def extract_symbol_from_strategy(strategy_name):
+    """Extract trading symbol from strategy name (BTC_RSI -> BTCUSDT)"""
+    # Extract first part before underscore
+    match = re.match(r'^([A-Z]+)_', strategy_name)
+    if match:
+        base = match.group(1)
+        return f"{base}USDT"
+    return "UNKNOWN"
+
+
+def get_strategy_type(strategy_name):
+    """Determine if strategy is spot (swing) or leverage (scalp)"""
+    # Spot/swing strategies contain VOL or OBV
+    if 'VOL' in strategy_name or 'OBV' in strategy_name:
+        return 'spot'
+    return 'leverage'
+
+
+def get_strategy_display_name(strategy_name):
+    """Generate display name from strategy name"""
+    parts = strategy_name.split('_')
+    if len(parts) >= 2:
+        base = parts[0]
+        indicator = parts[1]
+        if indicator == 'RSI':
+            return f"{base} RSI Extreme"
+        elif indicator == 'CCI':
+            return f"{base} CCI Extreme"
+        elif indicator == 'VOL':
+            return f"{base} Volume Surge"
+        elif indicator == 'OBV':
+            return f"{base} OBV Divergence"
+    return strategy_name
+
+
+def get_strategy_filters(strategy_name):
+    """Generate filter description from strategy name"""
+    strat_type = get_strategy_type(strategy_name)
+    if strat_type == 'spot':
+        return 'Daily + LONG-ONLY'
+    elif 'RSI' in strategy_name:
+        return 'H4 + LONG-ONLY'
+    else:
+        return 'H4+Daily'
+
+
+def calculate_metrics(closed_trades):
+    """Calculate advanced metrics from closed trades"""
+    if not closed_trades:
+        return {
+            'profit_factor': 0,
+            'realized_rr': 0,
+            'exit_target': 0,
+            'exit_stop': 0,
+            'exit_time': 0,
+            'win_streak': 0,
+            'loss_streak': 0,
+            'avg_hold_time': 0,
+            'avg_hold_unit': 'h'
+        }
+    
+    # Profit Factor: total wins / total losses
+    total_wins = sum(t['pnl'] for t in closed_trades if t.get('pnl', 0) > 0)
+    total_losses = abs(sum(t['pnl'] for t in closed_trades if t.get('pnl', 0) < 0))
+    profit_factor = total_wins / total_losses if total_losses > 0 else total_wins if total_wins > 0 else 0
+    
+    # Realized R:R: average win / average loss
+    wins = [t['pnl'] for t in closed_trades if t.get('pnl', 0) > 0]
+    losses = [abs(t['pnl']) for t in closed_trades if t.get('pnl', 0) < 0]
+    avg_win = sum(wins) / len(wins) if wins else 0
+    avg_loss = sum(losses) / len(losses) if losses else 0
+    realized_rr = avg_win / avg_loss if avg_loss > 0 else avg_win if avg_win > 0 else 0
+    
+    # Exit Breakdown
+    total = len(closed_trades)
+    exit_target = sum(1 for t in closed_trades if t.get('exit_reason') in ['take_profit', 'TARGET', 'TP']) / total * 100 if total > 0 else 0
+    exit_stop = sum(1 for t in closed_trades if t.get('exit_reason') in ['stop_loss', 'STOP', 'SL']) / total * 100 if total > 0 else 0
+    exit_time = sum(1 for t in closed_trades if t.get('exit_reason') in ['time_stop', 'TIME', 'TIMEOUT']) / total * 100 if total > 0 else 0
+    
+    # Streaks
+    win_streak = 0
+    loss_streak = 0
+    current_win = 0
+    current_loss = 0
+    for t in closed_trades:
+        if t.get('pnl', 0) > 0:
+            current_win += 1
+            current_loss = 0
+            win_streak = max(win_streak, current_win)
+        else:
+            current_loss += 1
+            current_win = 0
+            loss_streak = max(loss_streak, current_loss)
+    
+    # Average Hold Time
+    hold_times = []
+    for t in closed_trades:
+        if t.get('entry_time') and t.get('exit_time'):
+            try:
+                entry = datetime.fromisoformat(t['entry_time'].replace('Z', '+00:00'))
+                exit = datetime.fromisoformat(t['exit_time'].replace('Z', '+00:00'))
+                hold_times.append((exit - entry).total_seconds() / 3600)  # hours
+            except:
+                pass
+    
+    avg_hold = sum(hold_times) / len(hold_times) if hold_times else 0
+    if avg_hold >= 24:
+        avg_hold_time = avg_hold / 24
+        avg_hold_unit = 'd'
+    else:
+        avg_hold_time = avg_hold
+        avg_hold_unit = 'h'
+    
+    return {
+        'profit_factor': profit_factor,
+        'realized_rr': realized_rr,
+        'exit_target': exit_target,
+        'exit_stop': exit_stop,
+        'exit_time': exit_time,
+        'win_streak': win_streak,
+        'loss_streak': loss_streak,
+        'avg_hold_time': avg_hold_time,
+        'avg_hold_unit': avg_hold_unit
+    }
+
+
+def time_ago(iso_timestamp):
+    """Convert ISO timestamp to 'X minutes/hours ago' format"""
+    if not iso_timestamp:
+        return "Unknown"
+    try:
+        dt = datetime.fromisoformat(iso_timestamp.replace('Z', '+00:00'))
+        now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+        diff = now - dt
+        seconds = diff.total_seconds()
+        
+        if seconds < 60:
+            return "just now"
+        elif seconds < 3600:
+            mins = int(seconds / 60)
+            return f"{mins} min{'s' if mins > 1 else ''} ago"
+        elif seconds < 86400:
+            hours = int(seconds / 3600)
+            return f"{hours} hour{'s' if hours > 1 else ''} ago"
+        else:
+            days = int(seconds / 86400)
+            return f"{days} day{'s' if days > 1 else ''} ago"
+    except:
+        return "Unknown"
+
 
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>DRYRUN v4.0 - Multi-Strategy Dashboard</title>
+    <title>DRYRUN v5.0 - Dynamic Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -55,10 +198,10 @@ DASHBOARD_HTML = """
             display: flex;
             gap: 15px;
             align-items: flex-start;
-            height: calc(100vh - 200px);
+            height: calc(100vh - 220px);
         }
         .left-panel {
-            width: 400px;
+            width: 420px;
             flex-shrink: 0;
             height: 100%;
             display: flex;
@@ -89,23 +232,9 @@ DASHBOARD_HTML = """
         .scroll-content:hover::-webkit-scrollbar-thumb {
             background: rgba(45, 55, 72, 0.8);
         }
-        .scroll-content::-webkit-scrollbar-thumb:hover {
-            background: rgba(65, 80, 100, 0.9);
-        }
-        /* Firefox */
-        @supports (scrollbar-color: auto) {
-            .scroll-content {
-                scrollbar-width: thin;
-                scrollbar-color: transparent transparent;
-                transition: scrollbar-color 0.3s ease;
-            }
-            .scroll-content:hover {
-                scrollbar-color: rgba(45, 55, 72, 0.8) transparent;
-            }
-        }
         h1 { color: #f0f6fc; margin-bottom: 3px; font-size: 25px; }
-        .subtitle { color: #67778E; margin-bottom: 10px; font-size: 13px; }
-        h2 { color: #67778E; margin: 10px 0 6px; font-size: 13px; text-transform: uppercase; }
+        .subtitle { color: #67778E; margin-bottom: 10px; font-size: 13px; display: flex; gap: 15px; align-items: center; }
+        .last-updated { color: #3CE3AB; }
         .section-header {
             background: #0A0C0F;
             border: 1px solid #171E27;
@@ -125,7 +254,7 @@ DASHBOARD_HTML = """
             background: linear-gradient(135deg, #0E1218 0%, #0E1218 100%);
             border: 1px solid #171E27;
             padding: 12px;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -135,6 +264,39 @@ DASHBOARD_HTML = """
         .positive { color: #3CE3AB; }
         .negative { color: #F23674; }
         .neutral { color: #f0f6fc; }
+        .warning-color { color: #F2A93B; }
+        
+        .risk-monitor {
+            background: #0E1218;
+            border: 1px solid #171E27;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+        .risk-item { text-align: center; }
+        .risk-label { color: #67778E; font-size: 10px; text-transform: uppercase; }
+        .risk-value { font-size: 14px; margin-top: 2px; }
+        
+        .circuit-warning {
+            padding: 10px 12px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .warning-yellow {
+            background: rgba(242, 169, 59, 0.15);
+            border: 1px solid #F2A93B;
+            color: #F2A93B;
+        }
+        .warning-red {
+            background: rgba(242, 54, 116, 0.15);
+            border: 1px solid #F23674;
+            color: #F23674;
+        }
         
         .strategies-grid {
             display: flex;
@@ -157,6 +319,13 @@ DASHBOARD_HTML = """
         }
         .strategy-name { font-size: 15px; font-weight: normal; color: #f0f6fc; }
         .strategy-pair { font-size: 12px; color: #67778E; margin-top: 1px; }
+        .strategy-type {
+            font-size: 10px;
+            padding: 2px 6px;
+            margin-left: 6px;
+        }
+        .type-leverage { background: #5a1a3a; color: #F23674; }
+        .type-spot { background: #1a5a3a; color: #3CE3AB; }
         .strategy-filters {
             background: #171E27;
             padding: 4px 8px;
@@ -177,7 +346,7 @@ DASHBOARD_HTML = """
         
         .strategy-stats {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 6px;
             margin-bottom: 8px;
         }
@@ -185,8 +354,25 @@ DASHBOARD_HTML = """
             background: #171E27;
             padding: 6px;
         }
-        .stat-label { font-size: 11px; color: #67778E; }
-        .stat-value { font-size: 16px; font-weight: normal; margin-top: 1px; }
+        .stat-label { font-size: 10px; color: #67778E; }
+        .stat-value { font-size: 14px; font-weight: normal; margin-top: 1px; }
+        
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .metric-item {
+            background: #171E27;
+            padding: 5px;
+            text-align: center;
+        }
+        .metric-label { font-size: 9px; color: #67778E; text-transform: uppercase; }
+        .metric-value { font-size: 12px; margin-top: 1px; }
+        .metric-good { color: #3CE3AB; }
+        .metric-ok { color: #f0f6fc; }
+        .metric-bad { color: #F23674; }
         
         .position-box {
             background: #171E27;
@@ -205,21 +391,11 @@ DASHBOARD_HTML = """
             gap: 8px;
             margin-top: 10px;
             padding-top: 10px;
-            border-top: 1px solid #171E27;
+            border-top: 1px solid #0E1218;
         }
-        .position-detail {
-            text-align: center;
-        }
-        .position-detail-label {
-            font-size: 10px;
-            color: #67778E;
-            text-transform: uppercase;
-        }
-        .position-detail-value {
-            font-size: 13px;
-            font-weight: normal;
-            margin-top: 1px;
-        }
+        .position-detail { text-align: center; }
+        .position-detail-label { font-size: 10px; color: #67778E; text-transform: uppercase; }
+        .position-detail-value { font-size: 13px; font-weight: normal; margin-top: 1px; }
         .position-detail-value.entry { color: #f0f6fc; }
         .position-detail-value.sl { color: #F23674; }
         .position-detail-value.tp { color: #3CE3AB; }
@@ -316,12 +492,25 @@ DASHBOARD_HTML = """
 </head>
 <body>
     <div class="container">
-        <h1><span class="live-dot"></span>DRYRUN v4.0 Dashboard</h1>
-        <div class="subtitle">Multi-Strategy Paper Trading | 8 Strategies (5 Scalp + 3 Swing) | $8000 Total Capital</div>
+        <h1><span class="live-dot"></span>DRYRUN v5.0 Dashboard</h1>
+        <div class="subtitle">
+            <span>{{ strategies|length }} Strategies | ${{ "{:,.0f}".format(total_starting) }} Capital</span>
+            <span class="last-updated">Updated: {{ last_updated }}</span>
+        </div>
+        
+        {% if drawdown_pct <= -25 %}
+        <div class="circuit-warning warning-red">
+            🚨 CRITICAL: Portfolio drawdown at {{ "%.1f"|format(drawdown_pct) }}% - Consider pausing trading
+        </div>
+        {% elif drawdown_pct <= -15 %}
+        <div class="circuit-warning warning-yellow">
+            ⚠️ WARNING: Portfolio drawdown at {{ "%.1f"|format(drawdown_pct) }}% - Review performance
+        </div>
+        {% endif %}
         
         <div class="portfolio-summary">
             <div>
-                <div class="portfolio-balance" id="total-balance">${{ "%.2f"|format(total_balance) }}</div>
+                <div class="portfolio-balance {{ 'positive' if total_pnl >= 0 else 'negative' }}">${{ "%.2f"|format(total_balance) }}</div>
                 <div class="portfolio-pnl {{ 'positive' if total_pnl >= 0 else 'negative' }}">
                     {{ "+" if total_pnl >= 0 else "" }}${{ "%.2f"|format(total_pnl) }} ({{ "%.1f"|format(total_pnl_pct) }}%)
                 </div>
@@ -329,6 +518,25 @@ DASHBOARD_HTML = """
             <div style="text-align: right;">
                 <div style="font-size: 24px; color: #8b949e;">{{ total_trades }}</div>
                 <div style="font-size: 12px; color: #8b949e;">Total Trades</div>
+            </div>
+        </div>
+        
+        <div class="risk-monitor">
+            <div class="risk-item">
+                <div class="risk-label">Active Risk</div>
+                <div class="risk-value {{ 'positive' if total_exposure > 0 else 'neutral' }}">${{ "%.0f"|format(total_exposure) }}</div>
+            </div>
+            <div class="risk-item">
+                <div class="risk-label">Leverage</div>
+                <div class="risk-value {{ 'negative' if leverage_exposure > 0 else 'neutral' }}">${{ "%.0f"|format(leverage_exposure) }}</div>
+            </div>
+            <div class="risk-item">
+                <div class="risk-label">Spot</div>
+                <div class="risk-value {{ 'positive' if spot_exposure > 0 else 'neutral' }}">${{ "%.0f"|format(spot_exposure) }}</div>
+            </div>
+            <div class="risk-item">
+                <div class="risk-label">Portfolio PF</div>
+                <div class="risk-value {{ 'metric-good' if portfolio_pf > 1.5 else 'metric-ok' if portfolio_pf >= 1.0 else 'metric-bad' }}">{{ "%.2f"|format(portfolio_pf) }}</div>
             </div>
         </div>
         
@@ -341,66 +549,102 @@ DASHBOARD_HTML = """
                     <div class="strategy-card" data-symbol="{{ data.ws_symbol }}" data-strat="{{ strat_name }}">
                         <div class="strategy-header">
                             <div>
-                                <div class="strategy-name">{{ data.name }}</div>
+                                <div class="strategy-name">
+                                    {{ data.name }}
+                                    <span class="strategy-type type-{{ data.strat_type }}">{{ data.strat_type.upper() }}</span>
+                                </div>
                                 <div class="strategy-pair">{{ data.ws_symbol }}</div>
                             </div>
                             <div class="strategy-filters">{{ data.filters }}</div>
                         </div>
                         
                         <div class="live-price neutral" id="price-{{ strat_name }}">Loading...</div>
-                        <div style="font-size: 11px; color: #67778E; margin-bottom: 8px;">Starting: ${{ "{:,.0f}".format(starting_balance) }}</div>
-                
-                <div class="strategy-stats">
-                    <div class="stat-item">
-                        <div class="stat-label">Balance</div>
-                        <div class="stat-value {{ 'positive' if data.pnl >= 0 else 'negative' }}">${{ "%.2f"|format(data.balance) }}</div>
+                        
+                        <div class="strategy-stats">
+                            <div class="stat-item">
+                                <div class="stat-label">Balance</div>
+                                <div class="stat-value {{ 'positive' if data.pnl >= 0 else 'negative' }}">${{ "%.0f"|format(data.balance) }}</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">P&L</div>
+                                <div class="stat-value {{ 'positive' if data.pnl >= 0 else 'negative' }}">{{ "+" if data.pnl >= 0 else "" }}{{ "%.1f"|format(data.pnl_pct) }}%</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Win Rate</div>
+                                <div class="stat-value">{{ "%.0f"|format(data.win_rate) }}%</div>
+                            </div>
+                        </div>
+                        
+                        <div class="metrics-row">
+                            <div class="metric-item">
+                                <div class="metric-label">PF</div>
+                                <div class="metric-value {{ 'metric-good' if data.metrics.profit_factor > 1.5 else 'metric-ok' if data.metrics.profit_factor >= 1.0 else 'metric-bad' }}">{{ "%.2f"|format(data.metrics.profit_factor) }}</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">R:R</div>
+                                <div class="metric-value {{ 'metric-good' if data.metrics.realized_rr > 1.8 else 'metric-ok' if data.metrics.realized_rr >= 1.5 else 'metric-bad' }}">{{ "%.2f"|format(data.metrics.realized_rr) }}</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">Streaks</div>
+                                <div class="metric-value"><span class="metric-good">{{ data.metrics.win_streak }}W</span>/<span class="metric-bad">{{ data.metrics.loss_streak }}L</span></div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">Avg Hold</div>
+                                <div class="metric-value">{{ "%.1f"|format(data.metrics.avg_hold_time) }}{{ data.metrics.avg_hold_unit }}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="metrics-row">
+                            <div class="metric-item">
+                                <div class="metric-label">Target</div>
+                                <div class="metric-value metric-good">{{ "%.0f"|format(data.metrics.exit_target) }}%</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">Stop</div>
+                                <div class="metric-value metric-bad">{{ "%.0f"|format(data.metrics.exit_stop) }}%</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">Time</div>
+                                <div class="metric-value warning-color">{{ "%.0f"|format(data.metrics.exit_time) }}%</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">Trades</div>
+                                <div class="metric-value">{{ data.wins }}/{{ data.losses }}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="position-box">
+                            <div class="position-label">Position</div>
+                            {% if data.position %}
+                            <div class="position-status position-{{ data.position.direction }}">
+                                {% if data.position.direction == 'long' %}↑{% else %}↓{% endif %} {{ data.position.direction.upper() }} @ ${{ "%.2f"|format(data.position.entry_price) }}
+                                <span class="unrealized" id="unrealized-{{ strat_name }}">-</span>
+                            </div>
+                            <div class="position-details">
+                                <div class="position-detail">
+                                    <div class="position-detail-label">Entry</div>
+                                    <div class="position-detail-value entry">${{ "%.2f"|format(data.position.entry_price) }}</div>
+                                </div>
+                                <div class="position-detail">
+                                    <div class="position-detail-label">Stop Loss</div>
+                                    <div class="position-detail-value sl">${{ "%.2f"|format(data.position.stop_price) }}</div>
+                                </div>
+                                <div class="position-detail">
+                                    <div class="position-detail-label">Target</div>
+                                    <div class="position-detail-value tp">${{ "%.2f"|format(data.position.target_price) }}</div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="position-status position-flat">No position</div>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <div class="stat-label">P&L</div>
-                        <div class="stat-value {{ 'positive' if data.pnl >= 0 else 'negative' }}">{{ "+" if data.pnl >= 0 else "" }}{{ "%.1f"|format(data.pnl_pct) }}%</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Win Rate</div>
-                        <div class="stat-value">{{ "%.0f"|format(data.win_rate) }}%</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Trades</div>
-                        <div class="stat-value">{{ data.wins }}/{{ data.losses }}</div>
-                    </div>
+                    {% endfor %}
                 </div>
-                
-                <div class="position-box">
-                    <div class="position-label">Position</div>
-                    {% if data.position %}
-                    <div class="position-status position-{{ data.position.direction }}">
-                        {% if data.position.direction == 'long' %}↑{% else %}↓{% endif %} {{ data.position.direction.upper() }} @ ${{ "%.2f"|format(data.position.entry_price) }}
-                        <span class="unrealized" id="unrealized-{{ strat_name }}">-</span>
-                    </div>
-                    <div class="position-details">
-                        <div class="position-detail">
-                            <div class="position-detail-label">Entry</div>
-                            <div class="position-detail-value entry">${{ "%.2f"|format(data.position.entry_price) }}</div>
-                        </div>
-                        <div class="position-detail">
-                            <div class="position-detail-label">Stop Loss</div>
-                            <div class="position-detail-value sl">${{ "%.2f"|format(data.position.stop_price) }}</div>
-                        </div>
-                        <div class="position-detail">
-                            <div class="position-detail-label">Target</div>
-                            <div class="position-detail-value tp">${{ "%.2f"|format(data.position.target_price) }}</div>
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="position-status position-flat">No position</div>
-                    {% endif %}
                 </div>
             </div>
-            {% endfor %}
-            </div>
-                </div>
-        </div>
-        
-        <div class="right-panel">
+            
+            <div class="right-panel">
                 <div class="section-header">Recent Trades<span>({{ trades|length }})</span></div>
                 <div class="scroll-content">
                 {% if trades %}
@@ -427,7 +671,7 @@ DASHBOARD_HTML = """
                             <td>${{ "%.2f"|format(trade.exit_price) }}</td>
                             <td class="{{ 'positive' if trade.pnl >= 0 else 'negative' }}">{{ "+" if trade.pnl >= 0 else "" }}${{ "%.2f"|format(trade.pnl) }}</td>
                             <td><span class="badge badge-{{ 'win' if trade.pnl >= 0 else 'loss' }}">{{ 'WIN' if trade.pnl >= 0 else 'LOSS' }}</span></td>
-                            <td>{% if trade.exit_time %}{{ trade.exit_time[8:10] }}.{{ trade.exit_time[5:7] }}.{{ trade.exit_time[:4] }} @ {{ trade.exit_time[11:16] }}{% else %}-{% endif %}</td>
+                            <td>{% if trade.exit_time %}{{ trade.exit_time[8:10] }}.{{ trade.exit_time[5:7] }} {{ trade.exit_time[11:16] }}{% else %}-{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -449,18 +693,18 @@ DASHBOARD_HTML = """
                 <div id="ws-dot" class="ws-dot"></div>
                 <span id="ws-status">Connecting...</span>
             </div>
-            <div>Auto-refresh: 60s | 5 Scalp (15m) + 3 Swing (1d) | $1000/strategy | $8000 total</div>
+            <div>Auto-refresh: 60s | {{ strategies|length }} strategies | ${{ "{:,.0f}".format(starting_balance) }}/strategy</div>
         </div>
     </div>
     
     <script>
         const positions = {{ positions_json|safe }};
-        const strategySymbols = {{ strategy_symbols_json|safe }};  // Maps strategy_name -> ws_symbol
         const prices = {};
         let ws;
         
         function connectWebSocket() {
-            ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker/solusdt@ticker/adausdt@ticker/avaxusdt@ticker/bnbusdt@ticker');
+            const streams = {{ ws_streams|safe }};
+            ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=' + streams.join('/'));
             
             ws.onopen = function() {
                 document.getElementById('ws-dot').classList.add('connected');
@@ -470,13 +714,12 @@ DASHBOARD_HTML = """
             ws.onmessage = function(event) {
                 const msg = JSON.parse(event.data);
                 const data = msg.data;
-                const symbol = data.s;  // e.g. 'BTCUSDT'
+                const symbol = data.s;
                 const price = parseFloat(data.c);
                 const change = parseFloat(data.P);
                 
                 prices[symbol] = price;
                 
-                // Update all strategy cards that use this symbol
                 document.querySelectorAll('.strategy-card[data-symbol="' + symbol + '"]').forEach(function(card) {
                     const stratName = card.dataset.strat;
                     const priceEl = document.getElementById('price-' + stratName);
@@ -549,21 +792,11 @@ DASHBOARD_HTML = """
 
 
 def load_state():
-    """Load state from paper_trader_v4 format"""
+    """Load state from file"""
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, 'r') as f:
             return json.load(f)
-    # Default state matching v4 format (5 scalp + 3 swing strategies)
-    return {
-        'BTC_RSI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
-        'ETH_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
-        'SOL_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
-        'ADA_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
-        'AVAX_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
-        'BTC_VOL': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
-        'ETH_VOL': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
-        'BNB_OBV': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []}
-    }
+    return {}
 
 
 @app.route('/')
@@ -575,39 +808,62 @@ def dashboard():
     total_trades = 0
     positions_json = {}
     all_trades = []
+    ws_symbols = set()
     
-    for strategy_name, info in STRATEGIES_INFO.items():
-        # Get strategy state from v4 format (flat structure, not nested under 'strategies')
-        strat_state = state.get(strategy_name, {
-            'capital': STARTING_BALANCE,
-            'positions': [],
-            'closed_trades': []
-        })
+    # Portfolio-level metrics
+    total_exposure = 0
+    leverage_exposure = 0
+    spot_exposure = 0
+    all_closed_trades = []
+    
+    # Dynamically read strategies from state (skip keys starting with _)
+    for strategy_name, strat_state in state.items():
+        if strategy_name.startswith('_'):
+            continue
+        if not isinstance(strat_state, dict):
+            continue
+        if 'capital' not in strat_state:
+            continue
+        
+        ws_symbol = extract_symbol_from_strategy(strategy_name)
+        strat_type = get_strategy_type(strategy_name)
+        display_name = get_strategy_display_name(strategy_name)
+        filters = get_strategy_filters(strategy_name)
+        
+        ws_symbols.add(ws_symbol.lower() + '@ticker')
         
         balance = strat_state.get('capital', STARTING_BALANCE)
-        # Display migration: show $1000-base if state file still has old $1500-base
-        if state.get('_schema') != 'v4_1000' and 1400 <= balance <= 1600:
-            balance = 1000 + (balance - 1500)
         closed_trades = strat_state.get('closed_trades', [])
         positions = strat_state.get('positions', [])
         
-        # Calculate wins/losses from closed_trades
+        # Calculate wins/losses
         wins = len([t for t in closed_trades if t.get('pnl', 0) > 0])
         losses = len([t for t in closed_trades if t.get('pnl', 0) <= 0])
         
-        # Get current position (v4 uses positions array, take first if exists)
+        # Calculate metrics
+        metrics = calculate_metrics(closed_trades)
+        
+        # Get current position
         position = None
+        position_size = 0
         if positions and len(positions) > 0:
             pos = positions[0]
-            # Convert v4 position format to dashboard format
+            position_size = pos.get('size', 0) * pos.get('entry_price', 1)
             position = {
                 'direction': pos.get('side', 'long').lower(),
                 'entry_price': pos.get('entry_price', 0),
                 'stop_price': pos.get('stop_loss', 0),
                 'target_price': pos.get('take_profit', 0),
-                'size': pos.get('size', 0) * pos.get('entry_price', 1),  # Convert to $ value
+                'size': position_size,
                 'entry_time': pos.get('entry_time', '')
             }
+            
+            # Track exposure
+            total_exposure += position_size
+            if strat_type == 'leverage':
+                leverage_exposure += position_size
+            else:
+                spot_exposure += position_size
         
         pnl = balance - STARTING_BALANCE
         pnl_pct = pnl / STARTING_BALANCE * 100
@@ -615,13 +871,13 @@ def dashboard():
         
         total_balance += balance
         total_trades += wins + losses
+        all_closed_trades.extend(closed_trades)
         
-        # Use strategy_name as key (not ws_symbol) to avoid duplicates
-        ws_symbol = info['symbol']
         strategies[strategy_name] = {
-            'name': info['name'],
-            'filters': info['filters'],
-            'ws_symbol': ws_symbol,  # For WebSocket price lookup
+            'name': display_name,
+            'filters': filters,
+            'ws_symbol': ws_symbol,
+            'strat_type': strat_type,
             'balance': balance,
             'pnl': pnl,
             'pnl_pct': pnl_pct,
@@ -629,17 +885,19 @@ def dashboard():
             'losses': losses,
             'win_rate': win_rate,
             'position': position,
+            'metrics': metrics,
         }
         
         if position:
             positions_json[strategy_name] = position
         
         # Collect trades for display
+        pair = ws_symbol.replace('USDT', '/USDT')
         for trade in closed_trades:
             all_trades.append({
                 'symbol': ws_symbol,
-                'pair': info['pair'],  # Trading pair (BTC/USDT, etc.)
-                'strategy_name': info['name'],  # Full strategy name
+                'pair': pair,
+                'strategy_name': display_name,
                 'direction': trade.get('side', 'long').lower(),
                 'entry_price': trade.get('entry_price', 0),
                 'exit_price': trade.get('exit_price', 0),
@@ -647,15 +905,21 @@ def dashboard():
                 'exit_time': trade.get('exit_time', '')
             })
     
-    # Sort trades by exit time (newest first)
+    # Sort trades by exit time
     all_trades.sort(key=lambda x: x.get('exit_time', ''), reverse=True)
     
-    # Create strategy -> ws_symbol mapping for JS
-    strategy_symbols = {name: data['ws_symbol'] for name, data in strategies.items()}
-    
-    total_starting = STARTING_BALANCE * len(STRATEGIES_INFO)
+    # Calculate portfolio-level metrics
+    total_starting = STARTING_BALANCE * len(strategies)
     total_pnl = total_balance - total_starting
-    total_pnl_pct = total_pnl / total_starting * 100
+    total_pnl_pct = (total_pnl / total_starting * 100) if total_starting > 0 else 0
+    drawdown_pct = total_pnl_pct if total_pnl < 0 else 0
+    
+    # Portfolio Profit Factor
+    portfolio_metrics = calculate_metrics(all_closed_trades)
+    portfolio_pf = portfolio_metrics['profit_factor']
+    
+    # Last updated
+    last_updated = time_ago(state.get('_last_updated'))
     
     return render_template_string(
         DASHBOARD_HTML,
@@ -664,9 +928,16 @@ def dashboard():
         total_pnl=total_pnl,
         total_pnl_pct=total_pnl_pct,
         total_trades=total_trades,
+        total_starting=total_starting,
+        total_exposure=total_exposure,
+        leverage_exposure=leverage_exposure,
+        spot_exposure=spot_exposure,
+        drawdown_pct=drawdown_pct,
+        portfolio_pf=portfolio_pf,
+        last_updated=last_updated,
         trades=all_trades,
         positions_json=json.dumps(positions_json),
-        strategy_symbols_json=json.dumps(strategy_symbols),
+        ws_streams=json.dumps(list(ws_symbols)),
         starting_balance=STARTING_BALANCE,
     )
 
@@ -674,11 +945,12 @@ def dashboard():
 @app.route('/api/status')
 def api_status():
     state = load_state()
-    # Collect all trades from state
     all_trades = []
-    for strategy_name in STRATEGIES_INFO.keys():
-        strat_state = state.get(strategy_name, {})
-        all_trades.extend(strat_state.get('closed_trades', []))
+    for strategy_name, strat_state in state.items():
+        if strategy_name.startswith('_'):
+            continue
+        if isinstance(strat_state, dict):
+            all_trades.extend(strat_state.get('closed_trades', []))
     all_trades.sort(key=lambda x: x.get('exit_time', ''), reverse=True)
     return jsonify({'state': state, 'trades': all_trades[:20]})
 

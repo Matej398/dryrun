@@ -255,6 +255,7 @@ def _migrate_state_to_1000(state):
 
 def save_state(state):
     """Save trading state to file"""
+    state['_last_updated'] = datetime.now().isoformat()
     with open(STATE_FILE, 'w') as f:
         json.dump(state, f, indent=2, default=str)
 
