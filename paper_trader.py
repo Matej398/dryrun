@@ -121,6 +121,45 @@ STRATEGIES = {
         'indicator': 'cci',
         'cci_oversold': -100,
         'cci_overbought': 100
+    },
+    # === DAILY SWING STRATEGIES ===
+    'BTC_VOL': {
+        'symbol': 'BTC/USDT',
+        'timeframe': '1d',
+        'enabled': True,
+        'capital': INITIAL_CAPITAL_PER_STRATEGY,
+        'risk_per_trade': 1.0,  # Full capital per trade (swing)
+        'stop_loss_pct': 0.03,  # -3% stop
+        'take_profit_pct': 0.10,  # +10% target
+        'indicator': 'volume_surge',
+        'volume_mult': 2.0,  # Volume > 2x average
+        'price_change_pct': 0.02,  # Price up 2%
+        'long_only': True
+    },
+    'ETH_VOL': {
+        'symbol': 'ETH/USDT',
+        'timeframe': '1d',
+        'enabled': True,
+        'capital': INITIAL_CAPITAL_PER_STRATEGY,
+        'risk_per_trade': 1.0,
+        'stop_loss_pct': 0.03,
+        'take_profit_pct': 0.10,
+        'indicator': 'volume_surge',
+        'volume_mult': 2.0,
+        'price_change_pct': 0.02,
+        'long_only': True
+    },
+    'BNB_OBV': {
+        'symbol': 'BNB/USDT',
+        'timeframe': '1d',
+        'enabled': True,
+        'capital': INITIAL_CAPITAL_PER_STRATEGY,
+        'risk_per_trade': 1.0,
+        'stop_loss_pct': 0.05,  # -5% stop
+        'take_profit_pct': 0.15,  # +15% target
+        'indicator': 'obv_divergence',
+        'obv_lookback': 10,  # 10-day lookback for divergence
+        'long_only': True
     }
 }
 
@@ -165,6 +204,21 @@ def load_state():
                 'closed_trades': []
             },
             'AVAX_CCI': {
+                'capital': INITIAL_CAPITAL_PER_STRATEGY,
+                'positions': [],
+                'closed_trades': []
+            },
+            'BTC_VOL': {
+                'capital': INITIAL_CAPITAL_PER_STRATEGY,
+                'positions': [],
+                'closed_trades': []
+            },
+            'ETH_VOL': {
+                'capital': INITIAL_CAPITAL_PER_STRATEGY,
+                'positions': [],
+                'closed_trades': []
+            },
+            'BNB_OBV': {
                 'capital': INITIAL_CAPITAL_PER_STRATEGY,
                 'positions': [],
                 'closed_trades': []
@@ -380,6 +434,72 @@ def check_eth_cci_signal(df_15m, h4_df, daily_df, config):
     return 0
 
 
+def check_volume_surge_signal(df_daily, config):
+    """
+    Volume Surge Strategy (BTC/ETH)
+    
+    Entry: Volume > 2x average AND price up 2%
+    Long only (swing trade)
+    
+    Backtest: BTC +92.5%, ETH +30.3% (3yr)
+    """
+    if len(df_daily) < 21:
+        return 0
+    
+    current_volume = df_daily['volume'].iloc[-1]
+    volume_ma = df_daily['volume'].rolling(20).mean().iloc[-1]
+    price_change = (df_daily['close'].iloc[-1] / df_daily['close'].iloc[-2]) - 1
+    
+    volume_mult = config.get('volume_mult', 2.0)
+    price_change_pct = config.get('price_change_pct', 0.02)
+    
+    # Entry: Volume surge + price up
+    if current_volume > (volume_ma * volume_mult) and price_change > price_change_pct:
+        return 1  # LONG signal
+    
+    return 0
+
+
+def calculate_obv(df):
+    """Calculate On-Balance Volume"""
+    obv = [0]
+    for i in range(1, len(df)):
+        if df['close'].iloc[i] > df['close'].iloc[i-1]:
+            obv.append(obv[-1] + df['volume'].iloc[i])
+        elif df['close'].iloc[i] < df['close'].iloc[i-1]:
+            obv.append(obv[-1] - df['volume'].iloc[i])
+        else:
+            obv.append(obv[-1])
+    return obv
+
+
+def check_obv_divergence_signal(df_daily, config):
+    """
+    OBV Divergence Strategy (BNB)
+    
+    Entry: Price down BUT OBV up (bullish divergence = accumulation)
+    Long only (swing trade)
+    
+    Backtest: +139.1% (3yr)
+    """
+    lookback = config.get('obv_lookback', 10)
+    
+    if len(df_daily) < lookback + 2:
+        return 0
+    
+    # Calculate OBV
+    obv = calculate_obv(df_daily)
+    
+    # Check for bullish divergence: price down, OBV up
+    price_down = df_daily['close'].iloc[-1] < df_daily['close'].iloc[-lookback - 1]
+    obv_up = obv[-1] > obv[-lookback - 1]
+    
+    if price_down and obv_up:
+        return 1  # LONG signal (bullish divergence)
+    
+    return 0
+
+
 # =============================================================================
 # POSITION MANAGEMENT
 # =============================================================================
@@ -569,14 +689,15 @@ def run_trading_bot():
     """Main trading loop"""
     log_message("="*70)
     log_message("DRYRUN Paper Trading Bot v4.0 - STARTED")
-    log_message("Strategies: BTC RSI, ETH CCI, SOL CCI, ADA CCI, AVAX CCI")
-    log_message("Capital: $1000 per strategy ($5000 total)")
+    log_message("Scalp (15m): BTC RSI, ETH/SOL/ADA/AVAX CCI")
+    log_message("Swing (1d): BTC VOL, ETH VOL, BNB OBV")
+    log_message("Capital: $1000 per strategy ($8000 total)")
     log_message(f"Telegram: {'ENABLED' if TELEGRAM_ENABLED else 'DISABLED'}")
     log_message("="*70)
     
     # Send startup notification
     if TELEGRAM_ENABLED:
-        send_telegram_alert("🤖 <b>DRYRUN Bot Started</b>\n\nStrategies: BTC RSI, ETH CCI, SOL CCI, ADA CCI, AVAX CCI\nCapital: $1000/strategy ($5000 total)")
+        send_telegram_alert("🤖 <b>DRYRUN Bot Started</b>\n\nScalp (15m): BTC RSI, ETH/SOL/ADA/AVAX CCI\nSwing (1d): BTC VOL, ETH VOL, BNB OBV\nCapital: $1000/strategy ($8000 total)")
     
     # Initialize
     exchange = init_exchange()
@@ -596,41 +717,83 @@ def run_trading_bot():
                 if not config['enabled']:
                     continue
                 
-                # Fetch market data
-                df_15m = fetch_candles(exchange, config['symbol'], config['timeframe'])
-                if df_15m is None:
-                    continue
+                # Ensure strategy has state entry
+                if strategy_name not in state:
+                    state[strategy_name] = {
+                        'capital': INITIAL_CAPITAL_PER_STRATEGY,
+                        'positions': [],
+                        'closed_trades': []
+                    }
                 
-                df_4h = build_higher_timeframe(df_15m, '4h')
-                df_daily = build_higher_timeframe(df_15m, '1D')
-                
-                current_price = df_15m['close'].iloc[-1]
-                
-                # Check open positions
                 strategy_state = state[strategy_name]
-                for position in strategy_state['positions'][:]:  # Copy list to allow removal
-                    exit_reason, exit_price = check_exit_conditions(position, current_price, current_time)
-                    if exit_reason:
-                        close_position(state, strategy_name, position, exit_price, exit_reason)
-                        save_state(state)
                 
-                # Check for new signals (only if no open position)
-                if len(strategy_state['positions']) == 0:
-                    if strategy_name == 'BTC_RSI':
-                        signal = check_btc_rsi_signal(df_15m, df_4h, config)
-                    elif strategy_name in ['ETH_CCI', 'SOL_CCI', 'ADA_CCI', 'AVAX_CCI']:
-                        signal = check_eth_cci_signal(df_15m, df_4h, df_daily, config)
-                    else:
-                        signal = 0
+                # === DAILY TIMEFRAME STRATEGIES ===
+                if config['timeframe'] == '1d':
+                    # Fetch daily candles directly
+                    df_daily = fetch_candles(exchange, config['symbol'], '1d')
+                    if df_daily is None:
+                        continue
                     
-                    if signal != 0:
-                        open_position(state, strategy_name, signal, current_price, config)
-                        save_state(state)
+                    current_price = df_daily['close'].iloc[-1]
+                    
+                    # Check open positions (exits)
+                    for position in strategy_state['positions'][:]:
+                        exit_reason, exit_price = check_exit_conditions(position, current_price, current_time)
+                        if exit_reason:
+                            close_position(state, strategy_name, position, exit_price, exit_reason)
+                            save_state(state)
+                    
+                    # Check for new signals (only if no open position)
+                    if len(strategy_state['positions']) == 0:
+                        if config['indicator'] == 'volume_surge':
+                            signal = check_volume_surge_signal(df_daily, config)
+                        elif config['indicator'] == 'obv_divergence':
+                            signal = check_obv_divergence_signal(df_daily, config)
+                        else:
+                            signal = 0
+                        
+                        if signal != 0:
+                            open_position(state, strategy_name, signal, current_price, config)
+                            save_state(state)
+                
+                # === 15M TIMEFRAME STRATEGIES ===
+                else:
+                    # Fetch market data
+                    df_15m = fetch_candles(exchange, config['symbol'], config['timeframe'])
+                    if df_15m is None:
+                        continue
+                    
+                    df_4h = build_higher_timeframe(df_15m, '4h')
+                    df_daily = build_higher_timeframe(df_15m, '1D')
+                    
+                    current_price = df_15m['close'].iloc[-1]
+                    
+                    # Check open positions
+                    for position in strategy_state['positions'][:]:  # Copy list to allow removal
+                        exit_reason, exit_price = check_exit_conditions(position, current_price, current_time)
+                        if exit_reason:
+                            close_position(state, strategy_name, position, exit_price, exit_reason)
+                            save_state(state)
+                    
+                    # Check for new signals (only if no open position)
+                    if len(strategy_state['positions']) == 0:
+                        if strategy_name == 'BTC_RSI':
+                            signal = check_btc_rsi_signal(df_15m, df_4h, config)
+                        elif strategy_name in ['ETH_CCI', 'SOL_CCI', 'ADA_CCI', 'AVAX_CCI']:
+                            signal = check_eth_cci_signal(df_15m, df_4h, df_daily, config)
+                        else:
+                            signal = 0
+                        
+                        if signal != 0:
+                            open_position(state, strategy_name, signal, current_price, config)
+                            save_state(state)
             
             # Print status
             if current_time.minute % 15 == 0:  # Every 15 minutes
                 total = sum(state[s]['capital'] for s in STRATEGIES.keys() if s in state)
-                log_message(f"Status | BTC: ${state['BTC_RSI']['capital']:.2f} | ETH: ${state['ETH_CCI']['capital']:.2f} | SOL: ${state['SOL_CCI']['capital']:.2f} | ADA: ${state['ADA_CCI']['capital']:.2f} | AVAX: ${state['AVAX_CCI']['capital']:.2f} | Total: ${total:.2f}")
+                scalp_total = sum(state[s]['capital'] for s in ['BTC_RSI', 'ETH_CCI', 'SOL_CCI', 'ADA_CCI', 'AVAX_CCI'] if s in state)
+                swing_total = sum(state[s]['capital'] for s in ['BTC_VOL', 'ETH_VOL', 'BNB_OBV'] if s in state)
+                log_message(f"Status | Scalp: ${scalp_total:.0f} (BTC/ETH/SOL/ADA/AVAX) | Swing: ${swing_total:.0f} (BTC/ETH VOL, BNB OBV) | Total: ${total:.0f}")
             
             # Sleep until next check (check every 1 minute)
             time.sleep(60)
@@ -659,7 +822,7 @@ def generate_performance_report():
     total_initial = 0
     total_current = 0
     
-    for strategy_name in ['BTC_RSI', 'ETH_CCI', 'SOL_CCI', 'ADA_CCI', 'AVAX_CCI']:
+    for strategy_name in ['BTC_RSI', 'ETH_CCI', 'SOL_CCI', 'ADA_CCI', 'AVAX_CCI', 'BTC_VOL', 'ETH_VOL', 'BNB_OBV']:
         strategy_state = state[strategy_name]
         initial = INITIAL_CAPITAL_PER_STRATEGY
         current = strategy_state['capital']

@@ -1,6 +1,6 @@
 """
 DRYRUN v4.0 - Multi-Strategy Dashboard
-Shows BTC RSI + ETH CCI with live WebSocket prices
+Shows 8 strategies: 5 Scalp (15m) + 3 Swing (Daily)
 Updated for paper_trader_v4.py compatibility
 """
 from flask import Flask, render_template_string, jsonify
@@ -14,11 +14,16 @@ STARTING_BALANCE = 1000  # Per strategy (v4)
 
 # Map internal strategy names to display info and WebSocket symbols
 STRATEGIES_INFO = {
+    # Scalp strategies (15m)
     'BTC_RSI': {'name': 'BTC RSI Extreme', 'filters': 'H4 + LONG-ONLY', 'ws': 'btcusdt', 'symbol': 'BTCUSDT', 'pair': 'BTC/USDT'},
     'ETH_CCI': {'name': 'ETH CCI Extreme', 'filters': 'H4+Daily', 'ws': 'ethusdt', 'symbol': 'ETHUSDT', 'pair': 'ETH/USDT'},
     'SOL_CCI': {'name': 'SOL CCI Extreme', 'filters': 'H4+Daily', 'ws': 'solusdt', 'symbol': 'SOLUSDT', 'pair': 'SOL/USDT'},
     'ADA_CCI': {'name': 'ADA CCI Extreme', 'filters': 'H4+Daily', 'ws': 'adausdt', 'symbol': 'ADAUSDT', 'pair': 'ADA/USDT'},
     'AVAX_CCI': {'name': 'AVAX CCI Extreme', 'filters': 'H4+Daily', 'ws': 'avaxusdt', 'symbol': 'AVAXUSDT', 'pair': 'AVAX/USDT'},
+    # Swing strategies (Daily)
+    'BTC_VOL': {'name': 'BTC Volume Surge', 'filters': 'Daily + LONG-ONLY', 'ws': 'btcusdt', 'symbol': 'BTCUSDT', 'pair': 'BTC/USDT'},
+    'ETH_VOL': {'name': 'ETH Volume Surge', 'filters': 'Daily + LONG-ONLY', 'ws': 'ethusdt', 'symbol': 'ETHUSDT', 'pair': 'ETH/USDT'},
+    'BNB_OBV': {'name': 'BNB OBV Divergence', 'filters': 'Daily + LONG-ONLY', 'ws': 'bnbusdt', 'symbol': 'BNBUSDT', 'pair': 'BNB/USDT'},
 }
 
 DASHBOARD_HTML = """
@@ -312,7 +317,7 @@ DASHBOARD_HTML = """
 <body>
     <div class="container">
         <h1><span class="live-dot"></span>DRYRUN v4.0 Dashboard</h1>
-        <div class="subtitle">Multi-Strategy Paper Trading | 5 Validated Strategies | $5000 Total Capital</div>
+        <div class="subtitle">Multi-Strategy Paper Trading | 8 Strategies (5 Scalp + 3 Swing) | $8000 Total Capital</div>
         
         <div class="portfolio-summary">
             <div>
@@ -444,7 +449,7 @@ DASHBOARD_HTML = """
                 <div id="ws-dot" class="ws-dot"></div>
                 <span id="ws-status">Connecting...</span>
             </div>
-            <div>Auto-refresh: 60s | BTC RSI, ETH/SOL/ADA/AVAX CCI | $1000/strategy | $5000 total</div>
+            <div>Auto-refresh: 60s | 5 Scalp (15m) + 3 Swing (1d) | $1000/strategy | $8000 total</div>
         </div>
     </div>
     
@@ -454,7 +459,7 @@ DASHBOARD_HTML = """
         let ws;
         
         function connectWebSocket() {
-            ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker/solusdt@ticker/adausdt@ticker/avaxusdt@ticker');
+            ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker/solusdt@ticker/adausdt@ticker/avaxusdt@ticker/bnbusdt@ticker');
             
             ws.onopen = function() {
                 document.getElementById('ws-dot').classList.add('connected');
@@ -543,13 +548,16 @@ def load_state():
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, 'r') as f:
             return json.load(f)
-    # Default state matching v4 format
+    # Default state matching v4 format (5 scalp + 3 swing strategies)
     return {
         'BTC_RSI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
         'ETH_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
         'SOL_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
         'ADA_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
-        'AVAX_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []}
+        'AVAX_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
+        'BTC_VOL': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
+        'ETH_VOL': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
+        'BNB_OBV': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []}
     }
 
 

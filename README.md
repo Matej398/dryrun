@@ -1,19 +1,24 @@
 # DRYRUN v4 - Multi-Strategy Paper Trading Bot
 
-**Strategies:**
+## Scalp Strategies (15m timeframe)
 - BTC RSI Extreme + H4 filter (LONG-ONLY)
 - ETH CCI Extreme + H4 + Daily filter  
 - SOL CCI Extreme + H4 + Daily filter (105% robustness)
 - ADA CCI Extreme + H4 + Daily filter (115% robustness)
 - AVAX CCI Extreme + H4 + Daily filter (122% robustness - CHAMPION!)
 
+## Swing Strategies (Daily timeframe)
+- BTC Volume Surge (LONG-ONLY) - Entry: Vol > 2x avg + 2% price up
+- ETH Volume Surge (LONG-ONLY) - Entry: Vol > 2x avg + 2% price up
+- BNB OBV Divergence (LONG-ONLY) - Entry: Price down + OBV up (accumulation)
+
 **Based on 3-year backtest validation (2023-2026)**  
-**Total Capital: $5,000 ($1,000 per strategy)**
+**Total Capital: $8,000 ($1,000 per strategy)**
 
 ## Features
 
-- ✅ 5 validated strategies: BTC RSI + ETH/SOL/ADA/AVAX CCI
-- ✅ RSI & CCI indicators with H4/Daily filters
+- ✅ 8 validated strategies: 5 Scalp (15m) + 3 Swing (Daily)
+- ✅ RSI, CCI, Volume Surge, OBV Divergence indicators
 - ✅ Live WebSocket prices (real-time)
 - ✅ Live unrealized P&L tracking
 - ✅ Telegram alerts for all trades
@@ -110,6 +115,31 @@ systemctl restart dryrun-bot
 5. Risk: 2% per trade
 6. Starting capital: $1,000
 7. Backtest: +33% / 3 years, 73.2% win rate
+
+---
+
+## Daily Swing Strategies
+
+### BTC Volume Surge (Long-Only)
+1. Timeframe: Daily (1d)
+2. Entry: Volume > 2x 20-day average AND price up 2%+
+3. Stop: -3% | Target: +10%
+4. Risk: 100% capital per trade (swing position)
+5. Starting capital: $1,000
+
+### ETH Volume Surge (Long-Only)
+1. Timeframe: Daily (1d)
+2. Entry: Volume > 2x 20-day average AND price up 2%+
+3. Stop: -3% | Target: +10%
+4. Risk: 100% capital per trade (swing position)
+5. Starting capital: $1,000
+
+### BNB OBV Divergence (Long-Only)
+1. Timeframe: Daily (1d)
+2. Entry: Price down over 10 days BUT OBV up (accumulation signal)
+3. Stop: -5% | Target: +15%
+4. Risk: 100% capital per trade (swing position)
+5. Starting capital: $1,000
 
 ## Project Structure
 
