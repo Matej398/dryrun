@@ -337,17 +337,17 @@ DASHBOARD_HTML = """
                 <div class="section-header">Strategies<span>({{ strategies|length }})</span></div>
                 <div class="scroll-content">
                 <div class="strategies-grid">
-                    {% for symbol, data in strategies.items() %}
-                    <div class="strategy-card" data-symbol="{{ symbol }}">
+                    {% for strat_name, data in strategies.items() %}
+                    <div class="strategy-card" data-symbol="{{ data.ws_symbol }}" data-strat="{{ strat_name }}">
                         <div class="strategy-header">
                             <div>
                                 <div class="strategy-name">{{ data.name }}</div>
-                                <div class="strategy-pair">{{ symbol }}</div>
+                                <div class="strategy-pair">{{ data.ws_symbol }}</div>
                             </div>
                             <div class="strategy-filters">{{ data.filters }}</div>
                         </div>
                         
-                        <div class="live-price neutral" id="price-{{ symbol }}">Loading...</div>
+                        <div class="live-price neutral" id="price-{{ strat_name }}">Loading...</div>
                         <div style="font-size: 11px; color: #67778E; margin-bottom: 8px;">Starting: ${{ "{:,.0f}".format(starting_balance) }}</div>
                 
                 <div class="strategy-stats">
@@ -374,7 +374,7 @@ DASHBOARD_HTML = """
                     {% if data.position %}
                     <div class="position-status position-{{ data.position.direction }}">
                         {% if data.position.direction == 'long' %}↑{% else %}↓{% endif %} {{ data.position.direction.upper() }} @ ${{ "%.2f"|format(data.position.entry_price) }}
-                        <span class="unrealized" id="unrealized-{{ symbol }}">-</span>
+                        <span class="unrealized" id="unrealized-{{ strat_name }}">-</span>
                     </div>
                     <div class="position-details">
                         <div class="position-detail">
@@ -455,6 +455,7 @@ DASHBOARD_HTML = """
     
     <script>
         const positions = {{ positions_json|safe }};
+        const strategySymbols = {{ strategy_symbols_json|safe }};  // Maps strategy_name -> ws_symbol
         const prices = {};
         let ws;
         
@@ -469,24 +470,28 @@ DASHBOARD_HTML = """
             ws.onmessage = function(event) {
                 const msg = JSON.parse(event.data);
                 const data = msg.data;
-                const symbol = data.s;
+                const symbol = data.s;  // e.g. 'BTCUSDT'
                 const price = parseFloat(data.c);
                 const change = parseFloat(data.P);
                 
                 prices[symbol] = price;
                 
-                const priceEl = document.getElementById('price-' + symbol);
-                if (priceEl) {
-                    const prev = parseFloat(priceEl.dataset.price) || price;
-                    priceEl.textContent = '$' + price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    priceEl.innerHTML += '<span class="price-change ' + (change >= 0 ? 'positive' : 'negative') + '">' + 
-                        (change >= 0 ? '+' : '') + change.toFixed(2) + '%</span>';
+                // Update all strategy cards that use this symbol
+                document.querySelectorAll('.strategy-card[data-symbol="' + symbol + '"]').forEach(function(card) {
+                    const stratName = card.dataset.strat;
+                    const priceEl = document.getElementById('price-' + stratName);
+                    if (priceEl) {
+                        const prev = parseFloat(priceEl.dataset.price) || price;
+                        priceEl.textContent = '$' + price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        priceEl.innerHTML += '<span class="price-change ' + (change >= 0 ? 'positive' : 'negative') + '">' + 
+                            (change >= 0 ? '+' : '') + change.toFixed(2) + '%</span>';
+                        
+                        priceEl.className = 'live-price ' + (price > prev ? 'positive' : price < prev ? 'negative' : 'neutral');
+                        priceEl.dataset.price = price;
+                    }
                     
-                    priceEl.className = 'live-price ' + (price > prev ? 'positive' : price < prev ? 'negative' : 'neutral');
-                    priceEl.dataset.price = price;
-                }
-                
-                updateUnrealized(symbol, price);
+                    updateUnrealized(stratName, price);
+                });
             };
             
             ws.onclose = function() {
@@ -496,11 +501,11 @@ DASHBOARD_HTML = """
             };
         }
         
-        function updateUnrealized(symbol, currentPrice) {
-            const pos = positions[symbol];
+        function updateUnrealized(stratName, currentPrice) {
+            const pos = positions[stratName];
             if (!pos) return;
             
-            const el = document.getElementById('unrealized-' + symbol);
+            const el = document.getElementById('unrealized-' + stratName);
             if (!el) return;
             
             let unrealized;
@@ -611,11 +616,12 @@ def dashboard():
         total_balance += balance
         total_trades += wins + losses
         
-        # Use WebSocket symbol for display
+        # Use strategy_name as key (not ws_symbol) to avoid duplicates
         ws_symbol = info['symbol']
-        strategies[ws_symbol] = {
+        strategies[strategy_name] = {
             'name': info['name'],
             'filters': info['filters'],
+            'ws_symbol': ws_symbol,  # For WebSocket price lookup
             'balance': balance,
             'pnl': pnl,
             'pnl_pct': pnl_pct,
@@ -626,7 +632,7 @@ def dashboard():
         }
         
         if position:
-            positions_json[ws_symbol] = position
+            positions_json[strategy_name] = position
         
         # Collect trades for display
         for trade in closed_trades:
@@ -644,6 +650,9 @@ def dashboard():
     # Sort trades by exit time (newest first)
     all_trades.sort(key=lambda x: x.get('exit_time', ''), reverse=True)
     
+    # Create strategy -> ws_symbol mapping for JS
+    strategy_symbols = {name: data['ws_symbol'] for name, data in strategies.items()}
+    
     total_starting = STARTING_BALANCE * len(STRATEGIES_INFO)
     total_pnl = total_balance - total_starting
     total_pnl_pct = total_pnl / total_starting * 100
@@ -657,6 +666,7 @@ def dashboard():
         total_trades=total_trades,
         trades=all_trades,
         positions_json=json.dumps(positions_json),
+        strategy_symbols_json=json.dumps(strategy_symbols),
         starting_balance=STARTING_BALANCE,
     )
 
