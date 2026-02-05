@@ -14,9 +14,9 @@ STARTING_BALANCE = 1000  # Per strategy (v4)
 
 # Map internal strategy names to display info and WebSocket symbols
 STRATEGIES_INFO = {
-    'BTC_RSI': {'name': 'BTC RSI Extreme', 'filters': 'H4 + LONG-ONLY', 'ws': 'btcusdt', 'symbol': 'BTCUSDT'},
-    'ETH_CCI': {'name': 'ETH CCI Extreme', 'filters': 'H4+Daily', 'ws': 'ethusdt', 'symbol': 'ETHUSDT'},
-    'SOL_CCI': {'name': 'SOL CCI Extreme', 'filters': 'H4+Daily', 'ws': 'solusdt', 'symbol': 'SOLUSDT'},
+    'BTC_RSI': {'name': 'BTC RSI Extreme', 'filters': 'H4 + LONG-ONLY', 'ws': 'btcusdt', 'symbol': 'BTCUSDT', 'pair': 'BTC/USDT'},
+    'ETH_CCI': {'name': 'ETH CCI Extreme', 'filters': 'H4+Daily', 'ws': 'ethusdt', 'symbol': 'ETHUSDT', 'pair': 'ETH/USDT'},
+    'SOL_CCI': {'name': 'SOL CCI Extreme', 'filters': 'H4+Daily', 'ws': 'solusdt', 'symbol': 'SOLUSDT', 'pair': 'SOL/USDT'},
 }
 
 DASHBOARD_HTML = """
@@ -400,6 +400,7 @@ DASHBOARD_HTML = """
                 <table class="trades-table" id="trades-table">
                     <thead>
                         <tr>
+                            <th>Pair</th>
                             <th>Strategy</th>
                             <th>Direction</th>
                             <th>Entry</th>
@@ -412,6 +413,7 @@ DASHBOARD_HTML = """
                     <tbody>
                         {% for trade in trades[-100:]|reverse %}
                         <tr class="trade-row{% if loop.index > 50 %} hidden-row{% endif %}" data-row="{{ loop.index }}">
+                            <td>{{ trade.pair }}</td>
                             <td>{{ trade.strategy_name }}</td>
                             <td><span class="badge badge-{{ trade.direction }}">{{ trade.direction.upper() }}</span></td>
                             <td>${{ "%.2f"|format(trade.entry_price) }}</td>
@@ -618,6 +620,7 @@ def dashboard():
         for trade in closed_trades:
             all_trades.append({
                 'symbol': ws_symbol,
+                'pair': info['pair'],  # Trading pair (BTC/USDT, etc.)
                 'strategy_name': info['name'],  # Full strategy name
                 'direction': trade.get('side', 'long').lower(),
                 'entry_price': trade.get('entry_price', 0),
