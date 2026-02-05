@@ -91,6 +91,36 @@ STRATEGIES = {
         'indicator': 'cci',
         'cci_oversold': -100,
         'cci_overbought': 100
+    },
+    'ADA_CCI': {
+        'symbol': 'ADA/USDT',
+        'timeframe': '15m',
+        'enabled': True,
+        'capital': INITIAL_CAPITAL_PER_STRATEGY,
+        'risk_per_trade': 0.02,
+        'stop_loss_pct': 0.01,
+        'take_profit_pct': 0.02,
+        'time_stop_hours': 48,
+        'use_h4_filter': True,
+        'use_daily_filter': True,
+        'indicator': 'cci',
+        'cci_oversold': -100,
+        'cci_overbought': 100
+    },
+    'AVAX_CCI': {
+        'symbol': 'AVAX/USDT',
+        'timeframe': '15m',
+        'enabled': True,
+        'capital': INITIAL_CAPITAL_PER_STRATEGY,
+        'risk_per_trade': 0.02,
+        'stop_loss_pct': 0.01,
+        'take_profit_pct': 0.02,
+        'time_stop_hours': 48,
+        'use_h4_filter': True,
+        'use_daily_filter': True,
+        'indicator': 'cci',
+        'cci_oversold': -100,
+        'cci_overbought': 100
     }
 }
 
@@ -125,6 +155,16 @@ def load_state():
                 'closed_trades': []
             },
             'SOL_CCI': {
+                'capital': INITIAL_CAPITAL_PER_STRATEGY,
+                'positions': [],
+                'closed_trades': []
+            },
+            'ADA_CCI': {
+                'capital': INITIAL_CAPITAL_PER_STRATEGY,
+                'positions': [],
+                'closed_trades': []
+            },
+            'AVAX_CCI': {
                 'capital': INITIAL_CAPITAL_PER_STRATEGY,
                 'positions': [],
                 'closed_trades': []
@@ -529,14 +569,14 @@ def run_trading_bot():
     """Main trading loop"""
     log_message("="*70)
     log_message("DRYRUN Paper Trading Bot v4.0 - STARTED")
-    log_message("Strategies: BTC RSI (long-only), ETH CCI (H4+Daily), SOL CCI (H4+Daily)")
-    log_message("Capital: $1000 per strategy")
+    log_message("Strategies: BTC RSI, ETH CCI, SOL CCI, ADA CCI, AVAX CCI")
+    log_message("Capital: $1000 per strategy ($5000 total)")
     log_message(f"Telegram: {'ENABLED' if TELEGRAM_ENABLED else 'DISABLED'}")
     log_message("="*70)
     
     # Send startup notification
     if TELEGRAM_ENABLED:
-        send_telegram_alert("🤖 <b>DRYRUN Bot Started</b>\n\nStrategies: BTC RSI, ETH CCI, SOL CCI\nCapital: $1000/strategy")
+        send_telegram_alert("🤖 <b>DRYRUN Bot Started</b>\n\nStrategies: BTC RSI, ETH CCI, SOL CCI, ADA CCI, AVAX CCI\nCapital: $1000/strategy ($5000 total)")
     
     # Initialize
     exchange = init_exchange()
@@ -578,7 +618,7 @@ def run_trading_bot():
                 if len(strategy_state['positions']) == 0:
                     if strategy_name == 'BTC_RSI':
                         signal = check_btc_rsi_signal(df_15m, df_4h, config)
-                    elif strategy_name in ['ETH_CCI', 'SOL_CCI']:
+                    elif strategy_name in ['ETH_CCI', 'SOL_CCI', 'ADA_CCI', 'AVAX_CCI']:
                         signal = check_eth_cci_signal(df_15m, df_4h, df_daily, config)
                     else:
                         signal = 0
@@ -589,8 +629,8 @@ def run_trading_bot():
             
             # Print status
             if current_time.minute % 15 == 0:  # Every 15 minutes
-                total = state['BTC_RSI']['capital'] + state['ETH_CCI']['capital'] + state['SOL_CCI']['capital']
-                log_message(f"Status | BTC: ${state['BTC_RSI']['capital']:.2f} | ETH: ${state['ETH_CCI']['capital']:.2f} | SOL: ${state['SOL_CCI']['capital']:.2f} | Total: ${total:.2f}")
+                total = sum(state[s]['capital'] for s in STRATEGIES.keys() if s in state)
+                log_message(f"Status | BTC: ${state['BTC_RSI']['capital']:.2f} | ETH: ${state['ETH_CCI']['capital']:.2f} | SOL: ${state['SOL_CCI']['capital']:.2f} | ADA: ${state['ADA_CCI']['capital']:.2f} | AVAX: ${state['AVAX_CCI']['capital']:.2f} | Total: ${total:.2f}")
             
             # Sleep until next check (check every 1 minute)
             time.sleep(60)
@@ -619,7 +659,7 @@ def generate_performance_report():
     total_initial = 0
     total_current = 0
     
-    for strategy_name in ['BTC_RSI', 'ETH_CCI', 'SOL_CCI']:
+    for strategy_name in ['BTC_RSI', 'ETH_CCI', 'SOL_CCI', 'ADA_CCI', 'AVAX_CCI']:
         strategy_state = state[strategy_name]
         initial = INITIAL_CAPITAL_PER_STRATEGY
         current = strategy_state['capital']

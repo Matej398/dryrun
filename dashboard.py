@@ -17,6 +17,8 @@ STRATEGIES_INFO = {
     'BTC_RSI': {'name': 'BTC RSI Extreme', 'filters': 'H4 + LONG-ONLY', 'ws': 'btcusdt', 'symbol': 'BTCUSDT', 'pair': 'BTC/USDT'},
     'ETH_CCI': {'name': 'ETH CCI Extreme', 'filters': 'H4+Daily', 'ws': 'ethusdt', 'symbol': 'ETHUSDT', 'pair': 'ETH/USDT'},
     'SOL_CCI': {'name': 'SOL CCI Extreme', 'filters': 'H4+Daily', 'ws': 'solusdt', 'symbol': 'SOLUSDT', 'pair': 'SOL/USDT'},
+    'ADA_CCI': {'name': 'ADA CCI Extreme', 'filters': 'H4+Daily', 'ws': 'adausdt', 'symbol': 'ADAUSDT', 'pair': 'ADA/USDT'},
+    'AVAX_CCI': {'name': 'AVAX CCI Extreme', 'filters': 'H4+Daily', 'ws': 'avaxusdt', 'symbol': 'AVAXUSDT', 'pair': 'AVAX/USDT'},
 }
 
 DASHBOARD_HTML = """
@@ -310,7 +312,7 @@ DASHBOARD_HTML = """
 <body>
     <div class="container">
         <h1><span class="live-dot"></span>DRYRUN v4.0 Dashboard</h1>
-        <div class="subtitle">Multi-Strategy Paper Trading | BTC RSI (Long-Only) + ETH CCI (H4+Daily) + SOL CCI (H4+Daily)</div>
+        <div class="subtitle">Multi-Strategy Paper Trading | 5 Validated Strategies | $5000 Total Capital</div>
         
         <div class="portfolio-summary">
             <div>
@@ -442,7 +444,7 @@ DASHBOARD_HTML = """
                 <div id="ws-dot" class="ws-dot"></div>
                 <span id="ws-status">Connecting...</span>
             </div>
-            <div>Auto-refresh: 60s | BTC=H4+LongOnly, ETH=H4+Daily, SOL=H4+Daily | $1000/strategy</div>
+            <div>Auto-refresh: 60s | BTC RSI, ETH/SOL/ADA/AVAX CCI | $1000/strategy | $5000 total</div>
         </div>
     </div>
     
@@ -452,7 +454,7 @@ DASHBOARD_HTML = """
         let ws;
         
         function connectWebSocket() {
-            ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker/solusdt@ticker');
+            ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker/solusdt@ticker/adausdt@ticker/avaxusdt@ticker');
             
             ws.onopen = function() {
                 document.getElementById('ws-dot').classList.add('connected');
@@ -545,7 +547,9 @@ def load_state():
     return {
         'BTC_RSI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
         'ETH_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
-        'SOL_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []}
+        'SOL_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
+        'ADA_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []},
+        'AVAX_CCI': {'capital': STARTING_BALANCE, 'positions': [], 'closed_trades': []}
     }
 
 

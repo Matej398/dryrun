@@ -3,13 +3,16 @@
 **Strategies:**
 - BTC RSI Extreme + H4 filter (LONG-ONLY)
 - ETH CCI Extreme + H4 + Daily filter  
-- SOL CCI Extreme + H4 + Daily filter
+- SOL CCI Extreme + H4 + Daily filter (105% robustness)
+- ADA CCI Extreme + H4 + Daily filter (115% robustness)
+- AVAX CCI Extreme + H4 + Daily filter (122% robustness - CHAMPION!)
 
 **Based on 3-year backtest validation (2023-2026)**  
+**Total Capital: $5,000 ($1,000 per strategy)**
 
 ## Features
 
-- ✅ Multi-strategy: BTC (long-only) + ETH (both directions) + SOL (both directions)
+- ✅ 5 validated strategies: BTC RSI + ETH/SOL/ADA/AVAX CCI
 - ✅ RSI & CCI indicators with H4/Daily filters
 - ✅ Live WebSocket prices (real-time)
 - ✅ Live unrealized P&L tracking
@@ -72,7 +75,7 @@ systemctl restart dryrun-bot
 2. Entry: RSI crosses above 30 (oversold bounce)
 3. Stop: -1% | Target: +2% (2:1 RR)
 4. Risk: 2% per trade
-5. Starting capital: $1,500
+5. Starting capital: $1,000
 
 ### ETH CCI (Both Directions)
 1. H4 + Daily filters: Both must align with direction
@@ -82,13 +85,31 @@ systemctl restart dryrun-bot
 5. Risk: 2% per trade
 6. Starting capital: $1,000
 
-### SOL CCI (Both Directions)
+### SOL CCI (Both Directions) - 105% Robustness
 1. H4 + Daily filters: Both must align with direction
 2. Entry Long: CCI crosses above -100 (oversold)
 3. Entry Short: CCI crosses below +100 (overbought)
 4. Stop: -1% | Target: +2% (2:1 RR)
 5. Risk: 2% per trade
 6. Starting capital: $1,000
+
+### ADA CCI (Both Directions) - 115% Robustness
+1. H4 + Daily filters: Both must align with direction
+2. Entry Long: CCI crosses above -100 (oversold)
+3. Entry Short: CCI crosses below +100 (overbought)
+4. Stop: -1% | Target: +2% (2:1 RR)
+5. Risk: 2% per trade
+6. Starting capital: $1,000
+7. Backtest: +31% / 3 years, 73.7% win rate
+
+### AVAX CCI (Both Directions) - 122% Robustness (CHAMPION!)
+1. H4 + Daily filters: Both must align with direction
+2. Entry Long: CCI crosses above -100 (oversold)
+3. Entry Short: CCI crosses below +100 (overbought)
+4. Stop: -1% | Target: +2% (2:1 RR)
+5. Risk: 2% per trade
+6. Starting capital: $1,000
+7. Backtest: +33% / 3 years, 73.2% win rate
 
 ## Project Structure
 
