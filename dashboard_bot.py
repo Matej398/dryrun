@@ -21,8 +21,8 @@ BOT_CSS = """
 
 /* Pixel Bot Container */
 .bot-container {
-    width: 28px;
-    height: 22px;
+    width: 30px;
+    height: 24px;
     flex-shrink: 0;
 }
 
@@ -164,36 +164,60 @@ BOT_CSS = """
 BOT_HTML = """
 <div class="header-frame">
     <div class="bot-container">
-        <svg class="pixel-bot bot-happy" id="pixel-bot" viewBox="0 0 17 14" xmlns="http://www.w3.org/2000/svg">
-            <!-- Outer Border (2px thick) -->
-            <rect class="bot-border" x="0" y="0" width="17" height="2"/>
-            <rect class="bot-border" x="0" y="12" width="17" height="2"/>
-            <rect class="bot-border" x="0" y="0" width="2" height="14"/>
-            <rect class="bot-border" x="15" y="0" width="2" height="14"/>
-            
-            <!-- No background fill - transparent -->
+        <svg class="pixel-bot bot-happy" id="pixel-bot" viewBox="0 0 20 16" xmlns="http://www.w3.org/2000/svg">
+            <!-- Border - top 2 rows -->
+            <rect class="bot-border" x="0" y="0" width="20" height="1"/>
+            <rect class="bot-border" x="0" y="1" width="20" height="1"/>
+            <!-- Border - bottom 2 rows -->
+            <rect class="bot-border" x="0" y="14" width="20" height="1"/>
+            <rect class="bot-border" x="0" y="15" width="20" height="1"/>
+            <!-- Border - left 2 cols -->
+            <rect class="bot-border" x="0" y="2" width="1" height="12"/>
+            <rect class="bot-border" x="1" y="2" width="1" height="12"/>
+            <!-- Border - right 2 cols -->
+            <rect class="bot-border" x="18" y="2" width="1" height="12"/>
+            <rect class="bot-border" x="19" y="2" width="1" height="12"/>
             
             <!-- Left Eye (2x2) -->
-            <rect class="bot-eye" x="4" y="4" width="2" height="2"/>
+            <rect class="bot-eye" x="6" y="4" width="1" height="1"/>
+            <rect class="bot-eye" x="7" y="4" width="1" height="1"/>
+            <rect class="bot-eye" x="6" y="5" width="1" height="1"/>
+            <rect class="bot-eye" x="7" y="5" width="1" height="1"/>
             <!-- Right Eye (2x2) -->
-            <rect class="bot-eye" x="11" y="4" width="2" height="2"/>
+            <rect class="bot-eye" x="12" y="4" width="1" height="1"/>
+            <rect class="bot-eye" x="13" y="4" width="1" height="1"/>
+            <rect class="bot-eye" x="12" y="5" width="1" height="1"/>
+            <rect class="bot-eye" x="13" y="5" width="1" height="1"/>
             
             <!-- Closed eyes (for sleep - horizontal lines) -->
-            <rect class="bot-eye-closed" x="4" y="5" width="2" height="1"/>
-            <rect class="bot-eye-closed" x="11" y="5" width="2" height="1"/>
+            <rect class="bot-eye-closed" x="6" y="5" width="2" height="1"/>
+            <rect class="bot-eye-closed" x="12" y="5" width="2" height="1"/>
             
-            <!-- Happy Mouth (smile) -->
+            <!-- Happy Mouth (smile) - corners up + horizontal -->
             <g class="bot-mouth-happy">
+                <!-- Left corner -->
                 <rect class="bot-mouth" x="4" y="8" width="1" height="1"/>
-                <rect class="bot-mouth" x="5" y="9" width="7" height="1"/>
-                <rect class="bot-mouth" x="12" y="8" width="1" height="1"/>
+                <rect class="bot-mouth" x="5" y="8" width="1" height="1"/>
+                <rect class="bot-mouth" x="4" y="9" width="1" height="1"/>
+                <rect class="bot-mouth" x="5" y="9" width="1" height="1"/>
+                <!-- Right corner -->
+                <rect class="bot-mouth" x="14" y="8" width="1" height="1"/>
+                <rect class="bot-mouth" x="15" y="8" width="1" height="1"/>
+                <rect class="bot-mouth" x="14" y="9" width="1" height="1"/>
+                <rect class="bot-mouth" x="15" y="9" width="1" height="1"/>
+                <!-- Horizontal bar -->
+                <rect class="bot-mouth" x="6" y="10" width="8" height="1"/>
+                <rect class="bot-mouth" x="6" y="11" width="8" height="1"/>
             </g>
             
             <!-- Sad Mouth (frown - hidden by default) -->
             <g class="bot-mouth-sad">
-                <rect class="bot-mouth" x="4" y="9" width="1" height="1"/>
-                <rect class="bot-mouth" x="5" y="8" width="7" height="1"/>
-                <rect class="bot-mouth" x="12" y="9" width="1" height="1"/>
+                <!-- Left corner down -->
+                <rect class="bot-mouth" x="4" y="10" width="2" height="2"/>
+                <!-- Right corner down -->
+                <rect class="bot-mouth" x="14" y="10" width="2" height="2"/>
+                <!-- Horizontal bar up -->
+                <rect class="bot-mouth" x="6" y="8" width="8" height="2"/>
             </g>
         </svg>
     </div>
