@@ -12,17 +12,17 @@ BOT_CSS = """
 .header-frame {
     background: #0E1218;
     border: 1px solid #171E27;
-    padding: 12px 16px;
+    padding: 8px 12px;
     margin-bottom: 15px;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
 }
 
 /* Pixel Bot Container */
 .bot-container {
-    width: 60px;
-    height: 50px;
+    width: 28px;
+    height: 22px;
     flex-shrink: 0;
 }
 
@@ -31,19 +31,19 @@ BOT_CSS = """
     height: 100%;
 }
 
-/* Bot pixel styling */
+/* Bot pixel styling - single white color */
 .bot-pixel {
-    fill: #f0f6fc;
+    fill: none;
 }
 .bot-border {
-    fill: #67778E;
+    fill: #f0f6fc;
 }
 .bot-eye {
-    fill: #67778E;
+    fill: #f0f6fc;
     transition: opacity 0.1s;
 }
 .bot-mouth {
-    fill: #67778E;
+    fill: #f0f6fc;
 }
 
 /* Blink animation */
@@ -65,7 +65,7 @@ BOT_CSS = """
 }
 .bot-eye-closed {
     opacity: 0;
-    fill: #67778E;
+    fill: #f0f6fc;
 }
 
 /* Loading mode - eyes look around */
@@ -88,7 +88,7 @@ BOT_CSS = """
 
 .bot-mouth-sad {
     opacity: 0;
-    fill: #67778E;
+    fill: #f0f6fc;
 }
 
 /* Message Area */
@@ -139,8 +139,8 @@ BOT_CSS = """
 
 /* Sound toggle (pixel bell) */
 .sound-toggle {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
     cursor: pointer;
     flex-shrink: 0;
     opacity: 0.6;
@@ -153,7 +153,7 @@ BOT_CSS = """
 .sound-toggle.muted .bell-off { opacity: 1; }
 .sound-toggle .bell-off { opacity: 0; }
 .bell-pixel {
-    fill: #67778E;
+    fill: #f0f6fc;
 }
 """
 
@@ -164,37 +164,36 @@ BOT_CSS = """
 BOT_HTML = """
 <div class="header-frame">
     <div class="bot-container">
-        <svg class="pixel-bot bot-happy" id="pixel-bot" viewBox="0 0 16 13" xmlns="http://www.w3.org/2000/svg">
-            <!-- Border -->
-            <rect class="bot-border" x="0" y="0" width="16" height="1"/>
-            <rect class="bot-border" x="0" y="12" width="16" height="1"/>
-            <rect class="bot-border" x="0" y="0" width="1" height="13"/>
-            <rect class="bot-border" x="15" y="0" width="1" height="13"/>
+        <svg class="pixel-bot bot-happy" id="pixel-bot" viewBox="0 0 17 14" xmlns="http://www.w3.org/2000/svg">
+            <!-- Outer Border (2px thick) -->
+            <rect class="bot-border" x="0" y="0" width="17" height="2"/>
+            <rect class="bot-border" x="0" y="12" width="17" height="2"/>
+            <rect class="bot-border" x="0" y="0" width="2" height="14"/>
+            <rect class="bot-border" x="15" y="0" width="2" height="14"/>
             
-            <!-- Background -->
-            <rect class="bot-pixel" x="1" y="1" width="14" height="11"/>
+            <!-- No background fill - transparent -->
             
-            <!-- Left Eye -->
+            <!-- Left Eye (2x2) -->
             <rect class="bot-eye" x="4" y="4" width="2" height="2"/>
-            <!-- Right Eye -->
-            <rect class="bot-eye" x="10" y="4" width="2" height="2"/>
+            <!-- Right Eye (2x2) -->
+            <rect class="bot-eye" x="11" y="4" width="2" height="2"/>
             
-            <!-- Closed eyes (for sleep) -->
+            <!-- Closed eyes (for sleep - horizontal lines) -->
             <rect class="bot-eye-closed" x="4" y="5" width="2" height="1"/>
-            <rect class="bot-eye-closed" x="10" y="5" width="2" height="1"/>
+            <rect class="bot-eye-closed" x="11" y="5" width="2" height="1"/>
             
-            <!-- Happy Mouth -->
+            <!-- Happy Mouth (smile) -->
             <g class="bot-mouth-happy">
-                <rect class="bot-mouth" x="5" y="8" width="1" height="1"/>
-                <rect class="bot-mouth" x="6" y="9" width="4" height="1"/>
-                <rect class="bot-mouth" x="10" y="8" width="1" height="1"/>
+                <rect class="bot-mouth" x="4" y="8" width="1" height="1"/>
+                <rect class="bot-mouth" x="5" y="9" width="7" height="1"/>
+                <rect class="bot-mouth" x="12" y="8" width="1" height="1"/>
             </g>
             
-            <!-- Sad Mouth (hidden by default) -->
+            <!-- Sad Mouth (frown - hidden by default) -->
             <g class="bot-mouth-sad">
-                <rect class="bot-mouth" x="5" y="9" width="1" height="1"/>
-                <rect class="bot-mouth" x="6" y="8" width="4" height="1"/>
-                <rect class="bot-mouth" x="10" y="9" width="1" height="1"/>
+                <rect class="bot-mouth" x="4" y="9" width="1" height="1"/>
+                <rect class="bot-mouth" x="5" y="8" width="7" height="1"/>
+                <rect class="bot-mouth" x="12" y="9" width="1" height="1"/>
             </g>
         </svg>
     </div>
