@@ -75,11 +75,22 @@ def calculate_hold_time(entry_time, exit_time):
     try:
         entry = datetime.fromisoformat(entry_time.replace('Z', '+00:00'))
         exit = datetime.fromisoformat(exit_time.replace('Z', '+00:00'))
-        hours = (exit - entry).total_seconds() / 3600
-        if hours >= 24:
-            return f"{hours/24:.1f}d"
+        total_minutes = int((exit - entry).total_seconds() / 60)
+        
+        if total_minutes >= 1440:  # 24 hours or more
+            days = total_minutes // 1440
+            remaining_hours = (total_minutes % 1440) // 60
+            if remaining_hours > 0:
+                return f"{days}d {remaining_hours}h"
+            return f"{days}d"
+        elif total_minutes >= 60:
+            hours = total_minutes // 60
+            mins = total_minutes % 60
+            if mins > 0:
+                return f"{hours}h {mins}min"
+            return f"{hours}h"
         else:
-            return f"{hours:.1f}h"
+            return f"{total_minutes}min"
     except:
         return "-"
 
@@ -208,17 +219,16 @@ DASHBOARD_HTML = """
         .portfolio-summary {
             background: linear-gradient(135deg, #0E1218 0%, #0E1218 100%);
             border: 1px solid #171E27;
-            padding: 12px;
+            padding: 12px 16px;
             margin-bottom: 15px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 20px;
         }
         .portfolio-balance { font-size: 29px; font-weight: normal; }
-        .portfolio-pnl { font-size: 15px; margin-top: 3px; }
-        .portfolio-right { text-align: right; }
-        .portfolio-trades { font-size: 24px; color: #8b949e; }
-        .portfolio-risk { font-size: 11px; color: #67778E; margin-top: 4px; }
+        .portfolio-pnl { font-size: 14px; }
+        .portfolio-divider { width: 1px; height: 30px; background: #171E27; }
+        .portfolio-risk { font-size: 12px; color: #67778E; }
         .risk-active { color: #f0f6fc; }
         .risk-lev { color: #F23674; }
         .risk-spot { color: #3CE3AB; }
@@ -420,20 +430,15 @@ DASHBOARD_HTML = """
         </div>
         
         <div class="portfolio-summary">
-            <div>
-                <div class="portfolio-balance {{ 'positive' if total_pnl >= 0 else 'negative' }}">${{ "%.2f"|format(total_balance) }}</div>
-                <div class="portfolio-pnl {{ 'positive' if total_pnl >= 0 else 'negative' }}">
-                    {{ "+" if total_pnl >= 0 else "" }}${{ "%.2f"|format(total_pnl) }} ({{ "%.1f"|format(total_pnl_pct) }}%)
-                </div>
+            <div class="portfolio-balance {{ 'positive' if total_pnl >= 0 else 'negative' }}">${{ "%.2f"|format(total_balance) }}</div>
+            <div class="portfolio-pnl {{ 'positive' if total_pnl >= 0 else 'negative' }}">
+                {{ "+" if total_pnl >= 0 else "" }}${{ "%.2f"|format(total_pnl) }} ({{ "%.1f"|format(total_pnl_pct) }}%)
             </div>
-            <div class="portfolio-right">
-                <div class="portfolio-trades">{{ total_trades }}</div>
-                <div style="font-size: 12px; color: #8b949e;">Total Trades</div>
-                <div class="portfolio-risk">
-                    Active: <span class="risk-active">${{ "%.0f"|format(total_exposure) }}</span> |
-                    Lev: <span class="risk-lev">${{ "%.0f"|format(leverage_exposure) }}</span> |
-                    Spot: <span class="risk-spot">${{ "%.0f"|format(spot_exposure) }}</span>
-                </div>
+            <div class="portfolio-divider"></div>
+            <div class="portfolio-risk">
+                Active: <span class="risk-active">${{ "%.0f"|format(total_exposure) }}</span> |
+                Lev: <span class="risk-lev">${{ "%.0f"|format(leverage_exposure) }}</span> |
+                Spot: <span class="risk-spot">${{ "%.0f"|format(spot_exposure) }}</span>
             </div>
         </div>
         
@@ -509,7 +514,7 @@ DASHBOARD_HTML = """
             </div>
             
             <div class="right-panel">
-                <div class="section-header">Recent Trades<span>({{ trades|length }})</span></div>
+                <div class="section-header">Total Trades<span>({{ trades|length }})</span></div>
                 <div class="scroll-content">
                 {% if trades %}
                 <table class="trades-table" id="trades-table">
