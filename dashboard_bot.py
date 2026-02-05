@@ -21,8 +21,8 @@ BOT_CSS = """
 
 /* Pixel Bot Container */
 .bot-container {
-    width: 20px;
-    height: 16px;
+    width: 30px;
+    height: 24px;
     flex-shrink: 0;
 }
 
