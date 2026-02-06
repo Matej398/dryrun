@@ -254,7 +254,7 @@ DASHBOARD_HTML = """
         .portfolio-balance { font-size: 29px; font-weight: normal; }
         .portfolio-pnl { font-size: 14px; }
         .portfolio-divider { width: 1px; height: 30px; background: #171E27; }
-        .portfolio-risk { font-size: 12px; color: #67778E; }
+        .portfolio-risk { font-size: 13px; color: #67778E; }
         .risk-active { color: #f0f6fc; }
         .risk-lev { color: #F23674; }
         .risk-spot { color: #3CE3AB; }
@@ -282,11 +282,11 @@ DASHBOARD_HTML = """
             margin-bottom: 8px;
         }
         .strategy-name { font-size: 15px; font-weight: normal; color: #f0f6fc; }
-        .strategy-pair { font-size: 12px; color: #67778E; margin-top: 1px; }
+        .strategy-pair { font-size: 13px; color: #67778E; margin-top: 1px; }
         .strategy-filters {
             background: #171E27;
             padding: 4px 8px;
-            font-size: 12px;
+            font-size: 13px;
             color: #67778E;
         }
         
@@ -311,16 +311,16 @@ DASHBOARD_HTML = """
             background: #171E27;
             padding: 6px;
         }
-        .stat-label { font-size: 11px; color: #67778E; }
-        .stat-value { font-size: 16px; font-weight: normal; margin-top: 1px; }
+        .stat-label { font-size: 13px; color: #67778E; }
+        .stat-value { font-size: 18px; font-weight: normal; margin-top: 1px; }
         
         .position-box {
             background: #171E27;
             padding: 8px;
             margin-top: 6px;
         }
-        .position-label { font-size: 11px; color: #67778E; margin-bottom: 3px; }
-        .position-status { font-size: 13px; }
+        .position-label { font-size: 12px; color: #67778E; margin-bottom: 3px; }
+        .position-status { font-size: 14px; }
         .position-long { color: #3CE3AB; }
         .position-short { color: #F23674; }
         .position-flat { color: #67778E; }
@@ -337,12 +337,12 @@ DASHBOARD_HTML = """
             text-align: center;
         }
         .position-detail-label {
-            font-size: 10px;
+            font-size: 12px;
             color: #67778E;
             text-transform: uppercase;
         }
         .position-detail-value {
-            font-size: 13px;
+            font-size: 14px;
             font-weight: normal;
             margin-top: 1px;
         }
@@ -368,7 +368,7 @@ DASHBOARD_HTML = """
             border-bottom: 1px solid #171E27;
             font-size: 13px;
         }
-        th { background: #171E27; color: #67778E; font-weight: 500; font-size: 12px; }
+        th { background: #171E27; color: #67778E; font-weight: 500; font-size: 13px; }
         th:last-child, td:last-child { text-align: right; }
         tr:hover { background: #171E27; }
         tr.hidden-row { display: none; }
@@ -376,14 +376,14 @@ DASHBOARD_HTML = """
         .badge {
             display: inline-block;
             padding: 2px 6px;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: normal;
         }
         .badge-long { background: #1a5a3a; color: #3CE3AB; }
         .badge-short { background: #5a1a3a; color: #F23674; }
         .badge-win { background: #1a5a3a; color: #3CE3AB; }
         .badge-loss { background: #5a1a3a; color: #F23674; }
-        .filter-tag { font-size: 10px; color: #67778E; }
+        .filter-tag { font-size: 11px; color: #67778E; }
         
         .show-more-btn {
             width: 100%;
@@ -476,7 +476,7 @@ DASHBOARD_HTML = """
                         </div>
                         
                         <div class="live-price neutral" id="price-{{ strat_name }}">Loading...</div>
-                        <div style="font-size: 11px; color: #67778E; margin-bottom: 8px;">Starting: ${{ "{:,.0f}".format(starting_balance) }}</div>
+                        <div style="font-size: 12px; color: #67778E; margin-bottom: 8px;">Starting: ${{ "{:,.0f}".format(starting_balance) }}</div>
                 
                         <div class="strategy-stats">
                             <div class="stat-item">
