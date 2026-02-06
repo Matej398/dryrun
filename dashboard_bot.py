@@ -413,7 +413,9 @@ function onTradeClose(strategy, result, pnl) {
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     loadSoundPreference();
-    showBotMessage('System online - monitoring ' + Object.keys(positions).length + ' strategies', 'info');
+    var count = Object.keys(positions).length;
+    var word = count === 1 ? 'strategy' : 'strategies';
+    showBotMessage('System online - monitoring ' + count + ' ' + word, 'info');
     
     // Check for sleep mode every minute
     setInterval(checkSleepMode, 60000);
