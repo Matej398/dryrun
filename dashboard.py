@@ -286,7 +286,7 @@ DASHBOARD_HTML = """
         .strategy-filters {
             background: #171E27;
             padding: 4px 8px;
-            font-size: 13px;
+            font-size: 12px;
             color: #67778E;
         }
         
@@ -383,7 +383,7 @@ DASHBOARD_HTML = """
         .badge-short { background: #5a1a3a; color: #F23674; }
         .badge-win { background: #1a5a3a; color: #3CE3AB; }
         .badge-loss { background: #5a1a3a; color: #F23674; }
-        .filter-tag { font-size: 11px; color: #67778E; }
+        .filter-cell { font-size: 13px; color: #67778E; }
         
         .show-more-btn {
             width: 100%;
@@ -552,7 +552,7 @@ DASHBOARD_HTML = """
                         <tr class="trade-row{% if loop.index > 50 %} hidden-row{% endif %}" data-row="{{ loop.index }}">
                             <td>{{ trade.pair }}</td>
                             <td>{{ trade.strategy_name }}</td>
-                            <td><span class="filter-tag">{{ trade.filter }}</span></td>
+                            <td class="filter-cell">{{ trade.filter }}</td>
                             <td><span class="badge badge-{{ trade.direction }}">{{ trade.direction.upper() }}</span></td>
                             <td>{{ trade.entry_price|fmt_price }}</td>
                             <td>{{ trade.exit_price|fmt_price }}</td>
