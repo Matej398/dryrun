@@ -40,8 +40,9 @@ STARTING_BALANCE = 1000  # Per strategy
 
 # Expected strategies (ensures all show even if not in state file yet)
 EXPECTED_STRATEGIES = [
-    'BTC_RSI', 'ETH_CCI', 'SOL_CCI', 'ADA_CCI', 'AVAX_CCI',  # Scalp (leverage)
-    'BTC_VOL', 'ETH_VOL', 'BNB_OBV'  # Swing (spot)
+    'BTC_RSI', 'ETH_CCI', 'SOL_CCI', 'ADA_CCI', 'AVAX_CCI',  # Scalp 15m (leverage)
+    'ETH_4H',                                                  # Swing 4H (leverage)
+    'BTC_VOL', 'ETH_VOL', 'BNB_OBV'                            # Swing 1D (spot)
 ]
 
 
@@ -71,6 +72,8 @@ def get_strategy_display_name(strategy_name):
             return f"{base} RSI Extreme"
         elif indicator == 'CCI':
             return f"{base} CCI Extreme"
+        elif indicator == '4H':
+            return f"{base} CCI 4H"
         elif indicator == 'VOL':
             return f"{base} Volume Surge"
         elif indicator == 'OBV':
@@ -85,6 +88,8 @@ def get_strategy_filters(strategy_name):
         return 'Daily + LONG-ONLY'
     elif 'RSI' in strategy_name:
         return 'H4 + LONG-ONLY'
+    elif '4H' in strategy_name:
+        return '4H+Daily'
     else:
         return 'H4+Daily'
 

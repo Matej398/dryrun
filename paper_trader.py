@@ -1,6 +1,10 @@
 """
-DRYRUN Paper Trading Bot - UPDATED v4.1
+DRYRUN Paper Trading Bot - UPDATED v4.2
 Based on 3-year backtest validation (Feb 2026)
+
+CHANGES FROM v4.1:
+- NEW: ETH 4H CCI strategy (4h timeframe, +434% backtest)
+- 9 strategies total ($9000 capital)
 
 CHANGES FROM v4.0:
 - FIX: Disabled testnet - now uses MAINNET prices (matches dashboard)
@@ -121,6 +125,22 @@ STRATEGIES = {
         'cci_oversold': -100,
         'cci_overbought': 100
     },
+    # === 4H SWING STRATEGY ===
+    'ETH_4H': {
+        'symbol': 'ETH/USDT',
+        'timeframe': '4h',
+        'enabled': True,
+        'capital': INITIAL_CAPITAL_PER_STRATEGY,
+        'risk_per_trade': 0.02,
+        'stop_loss_pct': 0.04,      # -4% stop
+        'take_profit_pct': 0.08,    # +8% target
+        'time_stop_hours': None,     # No time stop for 4H
+        'use_daily_filter': True,
+        'indicator': 'cci',
+        'cci_oversold': -100,
+        'cci_overbought': 100,
+        'long_only': False          # Both directions
+    },
     # === DAILY SWING STRATEGIES ===
     'BTC_VOL': {
         'symbol': 'BTC/USDT',
@@ -233,6 +253,11 @@ def load_state():
                 'closed_trades': []
             },
             'AVAX_CCI': {
+                'capital': INITIAL_CAPITAL_PER_STRATEGY,
+                'positions': [],
+                'closed_trades': []
+            },
+            'ETH_4H': {
                 'capital': INITIAL_CAPITAL_PER_STRATEGY,
                 'positions': [],
                 'closed_trades': []
@@ -460,6 +485,54 @@ def check_eth_cci_signal(df_15m, h4_df, daily_df, config):
         if (not config['use_h4_filter'] or h4_direction <= 0) and \
            (not config['use_daily_filter'] or daily_direction <= 0):
             return -1  # SHORT signal
+    
+    return 0
+
+
+def check_eth_4h_cci_signal(df_4h, df_daily, config):
+    """
+    ETH CCI 4H Strategy
+    
+    Entry:
+    - CCI(20) crosses above -100 (oversold bounce) → LONG
+    - CCI(20) crosses below +100 (overbought) → SHORT
+    - Daily filter: Must align with direction
+    
+    Exit:
+    - Stop loss: -4%
+    - Take profit: +8%
+    
+    Backtest: +434.8% (3yr), 45% WR
+    """
+    if len(df_4h) < 25:
+        return 0
+    
+    # Calculate CCI on 4H
+    cci = calculate_cci(df_4h)
+    if len(cci) < 2:
+        return 0
+    
+    current_cci = cci.iloc[-1]
+    prev_cci = cci.iloc[-2]
+    
+    # Check Daily filter
+    if config.get('use_daily_filter', True):
+        daily_direction = get_daily_filter(df_daily)
+    else:
+        daily_direction = 0
+    
+    # Long signal: CCI crosses above -100
+    if current_cci > config['cci_oversold'] and prev_cci <= config['cci_oversold']:
+        # Daily must be bullish or neutral
+        if daily_direction >= 0:
+            return 1  # LONG signal
+    
+    # Short signal: CCI crosses below +100 (only if not long_only)
+    if not config.get('long_only', False):
+        if current_cci < config['cci_overbought'] and prev_cci >= config['cci_overbought']:
+            # Daily must be bearish or neutral
+            if daily_direction <= 0:
+                return -1  # SHORT signal
     
     return 0
 
@@ -724,17 +797,18 @@ def send_telegram_alert(message):
 def run_trading_bot():
     """Main trading loop"""
     log_message("="*70)
-    log_message("DRYRUN Paper Trading Bot v4.1 - STARTED")
+    log_message("DRYRUN Paper Trading Bot v4.2 - STARTED")
     log_message("NOW USING MAINNET PRICES (matches dashboard)")
     log_message("Scalp (15m): BTC RSI, ETH/SOL/ADA/AVAX CCI")
-    log_message("Swing (1d): BTC VOL, ETH VOL, BNB OBV")
-    log_message("Capital: $1000 per strategy ($8000 total)")
+    log_message("Swing (4H): ETH 4H CCI")
+    log_message("Swing (1D): BTC VOL, ETH VOL, BNB OBV")
+    log_message("Capital: $1000 per strategy ($9000 total)")
     log_message(f"Telegram: {'ENABLED' if TELEGRAM_ENABLED else 'DISABLED'}")
     log_message("="*70)
     
     # Send startup notification
     if TELEGRAM_ENABLED:
-        send_telegram_alert("🤖 <b>DRYRUN Bot v4.1 Started</b>\n\n✅ Now using MAINNET prices\n✅ Realistic exit prices\n\nScalp (15m): BTC RSI, ETH/SOL/ADA/AVAX CCI\nSwing (1d): BTC VOL, ETH VOL, BNB OBV\nCapital: $1000/strategy ($8000 total)")
+        send_telegram_alert("🤖 <b>DRYRUN Bot v4.2 Started</b>\n\n✅ Now using MAINNET prices\n✅ Realistic exit prices\n\nScalp (15m): BTC RSI, ETH/SOL/ADA/AVAX CCI\nSwing (4H): ETH 4H CCI\nSwing (1D): BTC VOL, ETH VOL, BNB OBV\nCapital: $1000/strategy ($9000 total)")
     
     # Initialize
     exchange = init_exchange()
@@ -814,6 +888,36 @@ def run_trading_bot():
                             open_position(state, strategy_name, signal, current_price, config)
                             save_state(state)
                 
+                # === 4H TIMEFRAME STRATEGIES ===
+                elif config['timeframe'] == '4h':
+                    # Fetch 4H candles directly
+                    df_4h = fetch_candles(exchange, config['symbol'], '4h')
+                    if df_4h is None:
+                        continue
+                    
+                    # Build daily from 4H
+                    df_daily = build_higher_timeframe(df_4h, '1D')
+                    
+                    current_price = df_4h['close'].iloc[-1]
+                    
+                    # Check open positions (exits)
+                    for position in strategy_state['positions'][:]:
+                        exit_reason, exit_price = check_exit_conditions(position, current_price, current_time)
+                        if exit_reason:
+                            close_position(state, strategy_name, position, exit_price, exit_reason)
+                            save_state(state)
+                    
+                    # Check for new signals (only if no open position)
+                    if len(strategy_state['positions']) == 0:
+                        if strategy_name == 'ETH_4H':
+                            signal = check_eth_4h_cci_signal(df_4h, df_daily, config)
+                        else:
+                            signal = 0
+                        
+                        if signal != 0:
+                            open_position(state, strategy_name, signal, current_price, config)
+                            save_state(state)
+                
                 # === 15M TIMEFRAME STRATEGIES ===
                 else:
                     # Fetch market data
@@ -850,8 +954,9 @@ def run_trading_bot():
             if current_time.minute % 15 == 0:  # Every 15 minutes
                 total = sum(state[s]['capital'] for s in STRATEGIES.keys() if s in state)
                 scalp_total = sum(state[s]['capital'] for s in ['BTC_RSI', 'ETH_CCI', 'SOL_CCI', 'ADA_CCI', 'AVAX_CCI'] if s in state)
-                swing_total = sum(state[s]['capital'] for s in ['BTC_VOL', 'ETH_VOL', 'BNB_OBV'] if s in state)
-                log_message(f"Status | Scalp: ${scalp_total:.0f} (BTC/ETH/SOL/ADA/AVAX) | Swing: ${swing_total:.0f} (BTC/ETH VOL, BNB OBV) | Total: ${total:.0f}")
+                swing_4h = state.get('ETH_4H', {}).get('capital', 0)
+                swing_1d = sum(state[s]['capital'] for s in ['BTC_VOL', 'ETH_VOL', 'BNB_OBV'] if s in state)
+                log_message(f"Status | Scalp 15m: ${scalp_total:.0f} | Swing 4H: ${swing_4h:.0f} | Swing 1D: ${swing_1d:.0f} | Total: ${total:.0f}")
             
             # Sleep until next check (check every 1 minute)
             time.sleep(60)
