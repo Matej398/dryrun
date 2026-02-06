@@ -1,6 +1,6 @@
 """
-DRYRUN v5.2 - Dynamic Multi-Strategy Dashboard
-- Reads strategies dynamically from state file
+DRYRUN v5.3 - Dynamic Multi-Strategy Dashboard
+- Auto-discovers strategies from strategies/ folder
 - Risk exposure in portfolio summary
 - Filter column in trades table
 - Memory optimization for background tabs
@@ -14,6 +14,9 @@ import re
 
 # Import bot components
 from dashboard_bot import BOT_CSS, BOT_HTML, BOT_JS
+
+# Import strategy auto-discovery
+from strategies import discover_strategies
 
 app = Flask(__name__)
 
@@ -38,12 +41,30 @@ def fmt_price(price):
 app.jinja_env.filters['fmt_price'] = fmt_price
 STARTING_BALANCE = 1000  # Per strategy
 
-# Expected strategies (ensures all show even if not in state file yet)
-EXPECTED_STRATEGIES = [
-    'BTC_RSI', 'ETH_CCI', 'SOL_CCI', 'ADA_CCI', 'AVAX_CCI',  # Scalp 15m (leverage)
-    'ETH_4H',                                                  # Swing 4H (leverage)
-    'BTC_VOL', 'ETH_VOL', 'BNB_OBV'                            # Swing 1D (spot)
-]
+# Auto-discover strategies (cached per request in route handlers)
+_discovered_strategies = None
+
+
+def get_discovered_strategies():
+    """Get discovered strategy instances (cached)."""
+    global _discovered_strategies
+    if _discovered_strategies is None:
+        try:
+            _discovered_strategies = discover_strategies()
+        except Exception:
+            _discovered_strategies = {}
+    return _discovered_strategies
+
+
+def get_strategy_names(state):
+    """Get strategy names from discovery + state file."""
+    discovered = get_discovered_strategies()
+    names = list(discovered.keys())
+    # Also include any names found in state file (backward compat)
+    for key in state:
+        if not key.startswith('_') and key not in names:
+            names.append(key)
+    return names
 
 
 def extract_symbol_from_strategy(strategy_name):
@@ -742,19 +763,30 @@ def dashboard():
     leverage_exposure = 0
     spot_exposure = 0
     
-    # Loop through EXPECTED_STRATEGIES to ensure all show up
-    for strategy_name in EXPECTED_STRATEGIES:
+    # Auto-discover strategies + any in state file
+    discovered = get_discovered_strategies()
+    strategy_names = get_strategy_names(state)
+
+    for strategy_name in strategy_names:
         # Get state data or use defaults
         strat_state = state.get(strategy_name, {
             'capital': STARTING_BALANCE,
             'positions': [],
             'closed_trades': []
         })
-        
-        ws_symbol = extract_symbol_from_strategy(strategy_name)
-        strat_type = get_strategy_type(strategy_name)
-        display_name = get_strategy_display_name(strategy_name)
-        filters = get_strategy_filters(strategy_name)
+
+        # Get metadata from strategy instance if available, else fallback
+        if strategy_name in discovered:
+            meta = discovered[strategy_name].get_dashboard_metadata()
+            ws_symbol = meta['ws_symbol']
+            strat_type = meta['strategy_type']
+            display_name = meta['name']
+            filters = meta['filters_description']
+        else:
+            ws_symbol = extract_symbol_from_strategy(strategy_name)
+            strat_type = get_strategy_type(strategy_name)
+            display_name = get_strategy_display_name(strategy_name)
+            filters = get_strategy_filters(strategy_name)
         
         ws_symbols.add(ws_symbol.lower() + '@ticker')
         
@@ -814,7 +846,6 @@ def dashboard():
         
         # Collect trades for display with hold time
         pair = ws_symbol.replace('USDT', '/USDT')
-        filters = get_strategy_filters(strategy_name)
         for trade in closed_trades:
             all_trades.append({
                 'symbol': ws_symbol,
@@ -864,7 +895,7 @@ def dashboard():
 def api_status():
     state = load_state()
     all_trades = []
-    for strategy_name in EXPECTED_STRATEGIES:
+    for strategy_name in get_strategy_names(state):
         strat_state = state.get(strategy_name, {})
         if isinstance(strat_state, dict):
             all_trades.extend(strat_state.get('closed_trades', []))
