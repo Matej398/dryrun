@@ -1,12 +1,11 @@
 """
-DRYRUN Paper Trading Bot - UPDATED v4.0
+DRYRUN Paper Trading Bot - UPDATED v4.1
 Based on 3-year backtest validation (Feb 2026)
 
-CHANGES FROM v3:
-- REMOVED: BNB Stochastic (failed 3-year backtest, -100% return)
-- KEPT: BTC RSI + H4 (long-only), ETH CCI + H4 + Daily
-- Capital allocation: $1000 per strategy
-- NO time filters (made performance worse in backtest)
+CHANGES FROM v4.0:
+- FIX: Disabled testnet - now uses MAINNET prices (matches dashboard)
+- FIX: Exits at actual market price (not limit TP/SL price) for realistic sim
+- FIX: Smart decimal formatting for smaller coins (ADA, SOL, AVAX)
 
 VALIDATED STRATEGIES:
 1. BTC RSI + H4 (long-only): +40.6% / 3 years, 52.5% WR
@@ -37,7 +36,7 @@ if env_file.exists():
 # CONFIGURATION
 # =============================================================================
 
-# Exchange setup (paper trading on Binance testnet)
+# Exchange setup (mainnet public data - no keys needed for price data)
 EXCHANGE = 'binance'
 API_KEY = 'your_testnet_api_key'
 API_SECRET = 'your_testnet_api_secret'
@@ -173,6 +172,36 @@ TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
 
 
 # =============================================================================
+# SMART PRICE FORMATTING
+# =============================================================================
+
+def fmt_price(price):
+    """Smart decimal formatting based on price level.
+    BTC/ETH = 2 decimals, mid-range = 3, small coins = 4-5 decimals.
+    """
+    if price >= 100:       # BTC, ETH, BNB, SOL
+        return f"${price:,.2f}"
+    elif price >= 10:      # AVAX, LINK, etc.
+        return f"${price:,.3f}"
+    elif price >= 1:       # ADA, XRP, etc.
+        return f"${price:,.4f}"
+    else:                  # DOGE, SHIB, etc.
+        return f"${price:,.5f}"
+
+
+def fmt_size(size, price):
+    """Smart size formatting - more decimals for expensive coins."""
+    if price >= 10000:     # BTC
+        return f"{size:.6f}"
+    elif price >= 100:     # ETH, BNB, SOL
+        return f"{size:.4f}"
+    elif price >= 1:       # ADA, AVAX
+        return f"{size:.2f}"
+    else:
+        return f"{size:.1f}"
+
+
+# =============================================================================
 # STATE MANAGEMENT
 # =============================================================================
 
@@ -271,12 +300,12 @@ def init_exchange():
         'secret': API_SECRET,
         'enableRateLimit': True,
         'options': {
-            'defaultType': 'future',  # or 'spot'
+            'defaultType': 'future',
         }
     })
     
-    # For testnet
-    exchange.set_sandbox_mode(True)
+    # DISABLED - using mainnet prices so dashboard and bot match
+    # exchange.set_sandbox_mode(True)
     
     return exchange
 
@@ -554,43 +583,47 @@ def open_position(state, strategy_name, signal, current_price, config):
     
     strategy_state['positions'].append(position)
     
-    log_message(f"🟢 {strategy_name} | {side} {position_size:.4f} @ ${entry_price:.2f} | SL: ${stop_loss:.2f} | TP: ${take_profit:.2f}")
+    p = fmt_price(entry_price)
+    sl = fmt_price(stop_loss)
+    tp = fmt_price(take_profit)
+    sz = fmt_size(position_size, entry_price)
+    log_message(f"🟢 {strategy_name} | {side} {sz} @ {p} | SL: {sl} | TP: {tp}")
     
     # Send Telegram alert
     alert_msg = f"🟢 <b>POSITION OPENED</b>\n\n"
     alert_msg += f"<b>Strategy:</b> {strategy_name}\n"
     alert_msg += f"<b>Direction:</b> {side}\n"
-    alert_msg += f"<b>Entry:</b> ${entry_price:,.2f}\n"
-    alert_msg += f"<b>Size:</b> {position_size:.6f}\n"
-    alert_msg += f"<b>Stop Loss:</b> ${stop_loss:,.2f}\n"
-    alert_msg += f"<b>Take Profit:</b> ${take_profit:,.2f}"
+    alert_msg += f"<b>Entry:</b> {p}\n"
+    alert_msg += f"<b>Size:</b> {sz}\n"
+    alert_msg += f"<b>Stop Loss:</b> {sl}\n"
+    alert_msg += f"<b>Take Profit:</b> {tp}"
     send_telegram_alert(alert_msg)
     
     return position
 
 
 def check_exit_conditions(position, current_price, current_time):
-    """Check if position should be closed"""
+    """Check if position should be closed - exits at ACTUAL market price"""
     entry_time = datetime.fromisoformat(position['entry_time'])
     hours_in_trade = (current_time - entry_time).total_seconds() / 3600
     
     if position['side'] == 'LONG':
         # Check stop loss
         if current_price <= position['stop_loss']:
-            return 'stop_loss', position['stop_loss']
+            return 'stop_loss', current_price
         
         # Check take profit
         if current_price >= position['take_profit']:
-            return 'take_profit', position['take_profit']
+            return 'take_profit', current_price
     
     else:  # SHORT
         # Check stop loss
         if current_price >= position['stop_loss']:
-            return 'stop_loss', position['stop_loss']
+            return 'stop_loss', current_price
         
         # Check take profit
         if current_price <= position['take_profit']:
-            return 'take_profit', position['take_profit']
+            return 'take_profit', current_price
     
     # Check time stop
     if hours_in_trade >= 48:
@@ -631,15 +664,17 @@ def close_position(state, strategy_name, position, exit_price, exit_reason):
     strategy_state['positions'].remove(position)
     
     emoji = "✅" if pnl > 0 else "❌"
-    log_message(f"{emoji} {strategy_name} | CLOSED {position['side']} | PnL: ${pnl:.2f} ({pnl_pct:+.2f}%) | Reason: {exit_reason} | Capital: ${strategy_state['capital']:.2f}")
+    ep = fmt_price(position['entry_price'])
+    xp = fmt_price(exit_price)
+    log_message(f"{emoji} {strategy_name} | CLOSED {position['side']} | {ep} → {xp} | PnL: ${pnl:.2f} ({pnl_pct:+.2f}%) | Reason: {exit_reason} | Capital: ${strategy_state['capital']:.2f}")
     
     # Send Telegram alert
     result_emoji = "✅" if pnl > 0 else "❌"
     alert_msg = f"{result_emoji} <b>POSITION CLOSED</b>\n\n"
     alert_msg += f"<b>Strategy:</b> {strategy_name}\n"
     alert_msg += f"<b>Direction:</b> {position['side']}\n"
-    alert_msg += f"<b>Entry:</b> ${position['entry_price']:,.2f}\n"
-    alert_msg += f"<b>Exit:</b> ${exit_price:,.2f}\n"
+    alert_msg += f"<b>Entry:</b> {ep}\n"
+    alert_msg += f"<b>Exit:</b> {xp}\n"
     alert_msg += f"<b>PnL:</b> ${pnl:+,.2f} ({pnl_pct:+.2f}%)\n"
     alert_msg += f"<b>Reason:</b> {exit_reason}\n"
     alert_msg += f"<b>New Capital:</b> ${strategy_state['capital']:,.2f}"
@@ -689,7 +724,8 @@ def send_telegram_alert(message):
 def run_trading_bot():
     """Main trading loop"""
     log_message("="*70)
-    log_message("DRYRUN Paper Trading Bot v4.0 - STARTED")
+    log_message("DRYRUN Paper Trading Bot v4.1 - STARTED")
+    log_message("NOW USING MAINNET PRICES (matches dashboard)")
     log_message("Scalp (15m): BTC RSI, ETH/SOL/ADA/AVAX CCI")
     log_message("Swing (1d): BTC VOL, ETH VOL, BNB OBV")
     log_message("Capital: $1000 per strategy ($8000 total)")
@@ -698,7 +734,7 @@ def run_trading_bot():
     
     # Send startup notification
     if TELEGRAM_ENABLED:
-        send_telegram_alert("🤖 <b>DRYRUN Bot Started</b>\n\nScalp (15m): BTC RSI, ETH/SOL/ADA/AVAX CCI\nSwing (1d): BTC VOL, ETH VOL, BNB OBV\nCapital: $1000/strategy ($8000 total)")
+        send_telegram_alert("🤖 <b>DRYRUN Bot v4.1 Started</b>\n\n✅ Now using MAINNET prices\n✅ Realistic exit prices\n\nScalp (15m): BTC RSI, ETH/SOL/ADA/AVAX CCI\nSwing (1d): BTC VOL, ETH VOL, BNB OBV\nCapital: $1000/strategy ($8000 total)")
     
     # Initialize
     exchange = init_exchange()
@@ -707,6 +743,27 @@ def run_trading_bot():
     if migrated:
         save_state(state)
         log_message("Migrated state from $1500 to $1000 per strategy (PnL preserved)")
+    
+    # === STARTUP CHECK: Close any positions that are past SL/TP ===
+    log_message("Checking for stale positions past SL/TP...")
+    current_time = datetime.now()
+    for strategy_name, config in STRATEGIES.items():
+        if not config['enabled'] or strategy_name not in state:
+            continue
+        strategy_state = state[strategy_name]
+        if len(strategy_state['positions']) > 0:
+            try:
+                df = fetch_candles(exchange, config['symbol'], config['timeframe'], limit=5)
+                if df is not None:
+                    current_price = df['close'].iloc[-1]
+                    for position in strategy_state['positions'][:]:
+                        exit_reason, exit_price = check_exit_conditions(position, current_price, current_time)
+                        if exit_reason:
+                            log_message(f"⚠️ STARTUP: Closing stale {strategy_name} position ({exit_reason})")
+                            close_position(state, strategy_name, position, exit_price, exit_reason)
+                            save_state(state)
+            except Exception as e:
+                log_message(f"Startup check error for {strategy_name}: {e}")
     
     # Main loop
     while True:
