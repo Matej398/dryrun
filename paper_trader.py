@@ -40,10 +40,8 @@ if env_file.exists():
 # CONFIGURATION
 # =============================================================================
 
-# Exchange setup (mainnet public data - no keys needed for price data)
+# Exchange setup (mainnet public data - no keys needed)
 EXCHANGE = 'binance'
-API_KEY = 'your_testnet_api_key'
-API_SECRET = 'your_testnet_api_secret'
 
 # Capital allocation (per strategy)
 INITIAL_CAPITAL_PER_STRATEGY = 1000  # $1000 each
@@ -319,18 +317,13 @@ def save_state(state):
 # =============================================================================
 
 def init_exchange():
-    """Initialize exchange connection"""
+    """Initialize exchange connection - public data only, no keys needed"""
     exchange = ccxt.binance({
-        'apiKey': API_KEY,
-        'secret': API_SECRET,
         'enableRateLimit': True,
         'options': {
             'defaultType': 'future',
         }
     })
-    
-    # DISABLED - using mainnet prices so dashboard and bot match
-    # exchange.set_sandbox_mode(True)
     
     return exchange
 
