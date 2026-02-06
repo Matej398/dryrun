@@ -36,6 +36,7 @@ class Strategy(ABC):
     stop_loss_pct: float = 0.01
     take_profit_pct: float = 0.02
     time_stop_hours = 48  # int or None
+    leverage: int = 1
     long_only: bool = False
     needs_h4_filter: bool = False
     needs_daily_filter: bool = False
@@ -61,6 +62,7 @@ class Strategy(ABC):
             'use_h4_filter': self.needs_h4_filter,
             'use_daily_filter': self.needs_daily_filter,
             'long_only': self.long_only,
+            'leverage': self.leverage,
         }
 
     def get_dashboard_metadata(self) -> dict:

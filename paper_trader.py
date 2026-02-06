@@ -185,13 +185,13 @@ def open_position(state, strategy_name, signal, current_price, config):
     if len(strategy_state['positions']) > 0:
         return  # Already have a position
 
-    # Calculate position size
+    # Calculate position size (with leverage multiplier)
     position_size = calculate_position_size(
         strategy_state['capital'],
         config['risk_per_trade'],
         config['stop_loss_pct'],
         current_price
-    )
+    ) * config.get('leverage', 1)
 
     # Calculate stops
     if signal == 1:  # LONG
