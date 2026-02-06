@@ -57,14 +57,9 @@ def get_discovered_strategies():
 
 
 def get_strategy_names(state):
-    """Get strategy names from discovery + state file."""
+    """Get strategy names from discovered strategies only."""
     discovered = get_discovered_strategies()
-    names = list(discovered.keys())
-    # Also include any names found in state file (backward compat)
-    for key in state:
-        if not key.startswith('_') and key not in names:
-            names.append(key)
-    return names
+    return list(discovered.keys())
 
 
 def extract_symbol_from_strategy(strategy_name):
