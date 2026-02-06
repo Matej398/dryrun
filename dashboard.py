@@ -11,6 +11,7 @@ from datetime import datetime
 import json
 import os
 import re
+import subprocess
 
 # Import bot components
 from dashboard_bot import BOT_CSS, BOT_HTML, BOT_JS
@@ -448,6 +449,11 @@ DASHBOARD_HTML = """
         .ws-status { display: flex; align-items: center; gap: 5px; }
         .ws-dot { width: 6px; height: 6px; background: #F23674; }
         .ws-dot.connected { background: #3CE3AB; }
+        .restart-btn {
+            background: none; border: 1px solid #2A3441; color: #67778E;
+            padding: 2px 10px; font-size: 11px; cursor: pointer;
+        }
+        .restart-btn:hover { border-color: #3CE3AB; color: #3CE3AB; }
         
         .no-trades {
             text-align: center;
@@ -597,11 +603,26 @@ DASHBOARD_HTML = """
                 <div id="ws-dot" class="ws-dot"></div>
                 <span id="ws-status">Connecting...</span>
             </div>
-            <div>Auto-refresh: 60s | {{ strategies|length }} strategies | ${{ "{:,.0f}".format(starting_balance) }}/strategy</div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <span>Auto-refresh: 60s | {{ strategies|length }} strategies | ${{ "{:,.0f}".format(starting_balance) }}/strategy</span>
+                <button class="restart-btn" onclick="restartServices()">Restart</button>
+            </div>
         </div>
     </div>
     
     <script>
+        function restartServices() {
+            if (!confirm('Restart bot + dashboard? (git pull + restart)')) return;
+            const btn = document.querySelector('.restart-btn');
+            btn.textContent = 'Restarting...';
+            btn.style.color = '#F0B93A';
+            btn.disabled = true;
+            fetch('/api/restart', {method: 'POST'})
+                .then(r => r.json())
+                .then(d => { btn.textContent = d.status === 'ok' ? 'Restarting...' : 'Error'; setTimeout(() => location.reload(), 3000); })
+                .catch(() => { btn.textContent = 'Error'; btn.style.color = '#F23674'; });
+        }
+
         const positions = {{ positions_json|safe }};
         const prices = {};
         let ws;
@@ -896,6 +917,41 @@ def api_status():
             all_trades.extend(strat_state.get('closed_trades', []))
     all_trades.sort(key=lambda x: x.get('exit_time', ''), reverse=True)
     return jsonify({'state': state, 'trades': all_trades[:20]})
+
+
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+VENV_PYTHON = os.path.join(PROJECT_DIR, 'venv', 'bin', 'python')
+
+
+@app.route('/api/restart', methods=['POST'])
+def api_restart():
+    """Git pull + restart paper_trader and dashboard."""
+    try:
+        # Git pull
+        subprocess.run(['git', 'pull'], cwd=PROJECT_DIR, timeout=30)
+
+        # Kill existing paper_trader (if running)
+        subprocess.run(['pkill', '-f', 'python paper_trader.py'], cwd=PROJECT_DIR)
+
+        # Start paper_trader
+        subprocess.Popen(
+            [VENV_PYTHON, 'paper_trader.py'],
+            cwd=PROJECT_DIR,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+        # Restart dashboard (delayed so response can be sent first)
+        subprocess.Popen(
+            ['bash', '-c', f'sleep 1 && pkill -f "python dashboard.py" && sleep 1 && {VENV_PYTHON} dashboard.py'],
+            cwd=PROJECT_DIR,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 if __name__ == '__main__':
