@@ -1,9 +1,9 @@
 """
-DRYRUN v5.1 - Dynamic Multi-Strategy Dashboard
+DRYRUN v5.2 - Dynamic Multi-Strategy Dashboard
 - Reads strategies dynamically from state file
-- LEVERAGE/SPOT type badges
 - Risk exposure in portfolio summary
-- Hold time in trades table
+- Filter column in trades table
+- Memory optimization for background tabs
 - Animated pixel bot header with typewriter messages
 """
 from flask import Flask, render_template_string, jsonify
@@ -283,13 +283,6 @@ DASHBOARD_HTML = """
         }
         .strategy-name { font-size: 15px; font-weight: normal; color: #f0f6fc; }
         .strategy-pair { font-size: 12px; color: #67778E; margin-top: 1px; }
-        .strategy-type {
-            font-size: 10px;
-            padding: 2px 6px;
-            margin-left: 6px;
-        }
-        .type-leverage { background: #5a1a3a; color: #F23674; }
-        .type-spot { background: #1a5a3a; color: #3CE3AB; }
         .strategy-filters {
             background: #171E27;
             padding: 4px 8px;
@@ -390,6 +383,7 @@ DASHBOARD_HTML = """
         .badge-short { background: #5a1a3a; color: #F23674; }
         .badge-win { background: #1a5a3a; color: #3CE3AB; }
         .badge-loss { background: #5a1a3a; color: #F23674; }
+        .filter-tag { font-size: 10px; color: #67778E; }
         
         .show-more-btn {
             width: 100%;
@@ -475,10 +469,7 @@ DASHBOARD_HTML = """
                     <div class="strategy-card" data-symbol="{{ data.ws_symbol }}" data-strat="{{ strat_name }}">
                         <div class="strategy-header">
                             <div>
-                                <div class="strategy-name">
-                                    {{ data.name }}
-                                    <span class="strategy-type type-{{ data.strat_type }}">{{ data.strat_type.upper() }}</span>
-                                </div>
+                                <div class="strategy-name">{{ data.name }}</div>
                                 <div class="strategy-pair">{{ data.ws_symbol }}</div>
                             </div>
                             <div class="strategy-filters">{{ data.filters }}</div>
@@ -546,6 +537,7 @@ DASHBOARD_HTML = """
                         <tr>
                             <th>Pair</th>
                             <th>Strategy</th>
+                            <th>Filter</th>
                             <th>Direction</th>
                             <th>Entry</th>
                             <th>Exit</th>
@@ -560,6 +552,7 @@ DASHBOARD_HTML = """
                         <tr class="trade-row{% if loop.index > 50 %} hidden-row{% endif %}" data-row="{{ loop.index }}">
                             <td>{{ trade.pair }}</td>
                             <td>{{ trade.strategy_name }}</td>
+                            <td><span class="filter-tag">{{ trade.filter }}</span></td>
                             <td><span class="badge badge-{{ trade.direction }}">{{ trade.direction.upper() }}</span></td>
                             <td>{{ trade.entry_price|fmt_price }}</td>
                             <td>{{ trade.exit_price|fmt_price }}</td>
@@ -620,6 +613,9 @@ DASHBOARD_HTML = """
             };
             
             ws.onmessage = function(event) {
+                // Skip updates when tab is hidden to save memory
+                if (!isPageVisible) return;
+                
                 const msg = JSON.parse(event.data);
                 const data = msg.data;
                 const symbol = data.s;
@@ -690,9 +686,30 @@ DASHBOARD_HTML = """
             }
         }
         
+        // Track page visibility to prevent memory buildup in background tabs
+        let isPageVisible = true;
+        document.addEventListener('visibilitychange', function() {
+            isPageVisible = !document.hidden;
+            if (isPageVisible && (!ws || ws.readyState !== WebSocket.OPEN)) {
+                connectWebSocket();
+            }
+        });
+        
+        // Clean up WebSocket before page unload
+        window.addEventListener('beforeunload', function() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        });
+        
         connectWebSocket();
         
-        setTimeout(function() { location.reload(); }, 60000);
+        // Reload page every 60s to clear memory
+        setTimeout(function() { 
+            if (ws) ws.close();
+            location.reload(); 
+        }, 60000);
         
         """ + BOT_JS + """
     </script>
@@ -797,11 +814,13 @@ def dashboard():
         
         # Collect trades for display with hold time
         pair = ws_symbol.replace('USDT', '/USDT')
+        filters = get_strategy_filters(strategy_name)
         for trade in closed_trades:
             all_trades.append({
                 'symbol': ws_symbol,
                 'pair': pair,
                 'strategy_name': display_name,
+                'filter': filters,
                 'direction': trade.get('side', 'long').lower(),
                 'entry_price': trade.get('entry_price', 0),
                 'exit_price': trade.get('exit_price', 0),
