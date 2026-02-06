@@ -18,6 +18,24 @@ from dashboard_bot import BOT_CSS, BOT_HTML, BOT_JS
 app = Flask(__name__)
 
 STATE_FILE = "paper_trading_state.json"
+
+
+def fmt_price(price):
+    """Smart decimal formatting based on price level.
+    BTC/ETH = 2 decimals, mid-range = 3, small coins = 4-5 decimals.
+    """
+    if price >= 100:       # BTC, ETH, BNB, SOL
+        return f"${price:,.2f}"
+    elif price >= 10:      # AVAX, LINK, etc.
+        return f"${price:,.3f}"
+    elif price >= 1:       # ADA, XRP, etc.
+        return f"${price:,.4f}"
+    else:                  # DOGE, SHIB, etc.
+        return f"${price:,.5f}"
+
+
+# Register as Jinja2 filter
+app.jinja_env.filters['fmt_price'] = fmt_price
 STARTING_BALANCE = 1000  # Per strategy
 
 # Expected strategies (ensures all show even if not in state file yet)
@@ -487,21 +505,21 @@ DASHBOARD_HTML = """
                             <div class="position-label">Position</div>
                             {% if data.position %}
                             <div class="position-status position-{{ data.position.direction }}">
-                                {% if data.position.direction == 'long' %}↑{% else %}↓{% endif %} {{ data.position.direction.upper() }} @ ${{ "%.2f"|format(data.position.entry_price) }}
+                                {% if data.position.direction == 'long' %}↑{% else %}↓{% endif %} {{ data.position.direction.upper() }} @ {{ data.position.entry_price|fmt_price }}
                                 <span class="unrealized" id="unrealized-{{ strat_name }}">-</span>
                             </div>
                             <div class="position-details">
                                 <div class="position-detail">
                                     <div class="position-detail-label">Entry</div>
-                                    <div class="position-detail-value entry">${{ "%.2f"|format(data.position.entry_price) }}</div>
+                                    <div class="position-detail-value entry">{{ data.position.entry_price|fmt_price }}</div>
                                 </div>
                                 <div class="position-detail">
                                     <div class="position-detail-label">Stop Loss</div>
-                                    <div class="position-detail-value sl">${{ "%.2f"|format(data.position.stop_price) }}</div>
+                                    <div class="position-detail-value sl">{{ data.position.stop_price|fmt_price }}</div>
                                 </div>
                                 <div class="position-detail">
                                     <div class="position-detail-label">Target</div>
-                                    <div class="position-detail-value tp">${{ "%.2f"|format(data.position.target_price) }}</div>
+                                    <div class="position-detail-value tp">{{ data.position.target_price|fmt_price }}</div>
                                 </div>
                             </div>
                             {% else %}
@@ -538,8 +556,8 @@ DASHBOARD_HTML = """
                             <td>{{ trade.pair }}</td>
                             <td>{{ trade.strategy_name }}</td>
                             <td><span class="badge badge-{{ trade.direction }}">{{ trade.direction.upper() }}</span></td>
-                            <td>${{ "%.2f"|format(trade.entry_price) }}</td>
-                            <td>${{ "%.2f"|format(trade.exit_price) }}</td>
+                            <td>{{ trade.entry_price|fmt_price }}</td>
+                            <td>{{ trade.exit_price|fmt_price }}</td>
                             <td class="{{ 'positive' if trade.pnl >= 0 else 'negative' }}">{{ "+" if trade.pnl >= 0 else "" }}${{ "%.2f"|format(trade.pnl) }}</td>
                             <td><span class="badge badge-{{ 'win' if trade.pnl >= 0 else 'loss' }}">{{ 'WIN' if trade.pnl >= 0 else 'LOSS' }}</span></td>
                             <td>{% if trade.exit_time %}{{ trade.exit_time[8:10] }}.{{ trade.exit_time[5:7] }} {{ trade.exit_time[11:16] }}{% else %}-{% endif %}</td>
@@ -574,6 +592,19 @@ DASHBOARD_HTML = """
         const prices = {};
         let ws;
         
+        // Smart decimal formatting based on price level
+        function fmtPrice(price) {
+            if (price >= 100) {
+                return '$' + price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            } else if (price >= 10) {
+                return '$' + price.toLocaleString('en-US', {minimumFractionDigits: 3, maximumFractionDigits: 3});
+            } else if (price >= 1) {
+                return '$' + price.toLocaleString('en-US', {minimumFractionDigits: 4, maximumFractionDigits: 4});
+            } else {
+                return '$' + price.toLocaleString('en-US', {minimumFractionDigits: 5, maximumFractionDigits: 5});
+            }
+        }
+        
         function connectWebSocket() {
             const streams = {{ ws_streams|safe }};
             ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=' + streams.join('/'));
@@ -597,7 +628,7 @@ DASHBOARD_HTML = """
                     const priceEl = document.getElementById('price-' + stratName);
                     if (priceEl) {
                         const prev = parseFloat(priceEl.dataset.price) || price;
-                        priceEl.textContent = '$' + price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        priceEl.textContent = fmtPrice(price);
                         priceEl.innerHTML += '<span class="price-change ' + (change >= 0 ? 'positive' : 'negative') + '">' + 
                             (change >= 0 ? '+' : '') + change.toFixed(2) + '%</span>';
                         
