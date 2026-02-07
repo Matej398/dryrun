@@ -12,6 +12,7 @@ import json
 import os
 import re
 import subprocess
+import time
 
 # Import bot components
 from dashboard_bot import BOT_CSS, BOT_HTML, BOT_JS
@@ -930,10 +931,11 @@ def api_restart():
         # Git pull
         subprocess.run(['git', 'pull'], cwd=PROJECT_DIR, timeout=30)
 
-        # Kill existing paper_trader (if running)
-        subprocess.run(['pkill', '-f', 'python paper_trader.py'], cwd=PROJECT_DIR)
+        # Kill ALL existing paper_trader instances and wait
+        subprocess.run(['pkill', '-f', 'python paper_trader.py'])
+        time.sleep(2)  # Wait for processes to die
 
-        # Start paper_trader
+        # Start paper_trader (PID lockfile prevents duplicates)
         subprocess.Popen(
             [VENV_PYTHON, 'paper_trader.py'],
             cwd=PROJECT_DIR,
@@ -943,7 +945,7 @@ def api_restart():
 
         # Restart dashboard (delayed so response can be sent first)
         subprocess.Popen(
-            ['bash', '-c', f'sleep 1 && pkill -f "python dashboard.py" && sleep 1 && {VENV_PYTHON} dashboard.py'],
+            ['bash', '-c', f'sleep 1 && pkill -f "python dashboard.py" && sleep 2 && {VENV_PYTHON} dashboard.py'],
             cwd=PROJECT_DIR,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             start_new_session=True,

@@ -11,6 +11,9 @@ import time
 from datetime import datetime
 import json
 import os
+import sys
+import signal
+import atexit
 
 from strategies import discover_strategies
 
@@ -554,8 +557,39 @@ def generate_performance_report():
     print("=" * 70 + "\n")
 
 
+PIDFILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'paper_trader.pid')
+
+
+def acquire_lock():
+    """Ensure only one instance runs. Kill stale process if needed."""
+    if os.path.exists(PIDFILE):
+        try:
+            old_pid = int(open(PIDFILE).read().strip())
+            os.kill(old_pid, 0)  # Check if alive
+            # Old process is alive — kill it
+            log_message(f"Killing old instance (PID {old_pid})")
+            os.kill(old_pid, signal.SIGTERM)
+            time.sleep(2)
+        except (ProcessLookupError, ValueError):
+            pass  # Stale PID file, safe to overwrite
+
+    with open(PIDFILE, 'w') as f:
+        f.write(str(os.getpid()))
+
+    atexit.register(release_lock)
+
+
+def release_lock():
+    """Remove PID file on exit."""
+    try:
+        if os.path.exists(PIDFILE) and int(open(PIDFILE).read().strip()) == os.getpid():
+            os.remove(PIDFILE)
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
-    # Uncomment to run bot
+    acquire_lock()
     run_trading_bot()
 
     # Or generate report
