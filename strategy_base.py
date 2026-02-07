@@ -74,7 +74,7 @@ class Strategy(ABC):
             'ws_symbol': ws_symbol,
             'strategy_type': self.strategy_type,
             'filters_description': self.filters_description,
-            'leverage': self.leverage,
+            'leverage': round((self.risk_per_trade / self.stop_loss_pct) * self.leverage),
         }
 
 
