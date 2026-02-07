@@ -300,7 +300,7 @@ DASHBOARD_HTML = """
             margin-bottom: 8px;
         }
         .strategy-name { font-size: 15px; font-weight: normal; color: #f0f6fc; }
-        .strategy-pair { font-size: 13px; color: #67778E; margin-top: 1px; }
+        .strategy-pair { font-size: 13px; color: #67778E; margin-top: 1px; display: flex; align-items: center; }
         .strategy-filters {
             background: #171E27;
             padding: 4px 8px;
@@ -461,10 +461,10 @@ DASHBOARD_HTML = """
         }
         .pos-badge {
             margin-left: 6px; font-size: 11px; padding: 2px 6px;
-            border: 1px solid; letter-spacing: 0.3px;
+            border-radius: 3px; letter-spacing: 0.3px; vertical-align: middle;
         }
-        .pos-badge.pos-long { color: #3CE3AB; background: rgba(60,227,171,0.12); border-color: rgba(60,227,171,0.3); }
-        .pos-badge.pos-short { color: #F23674; background: rgba(242,54,116,0.12); border-color: rgba(242,54,116,0.3); }
+        .pos-badge.pos-long { color: #3CE3AB; background: rgba(60,227,171,0.12); }
+        .pos-badge.pos-short { color: #F23674; background: rgba(242,54,116,0.12); }
         
         .no-trades {
             text-align: center;
