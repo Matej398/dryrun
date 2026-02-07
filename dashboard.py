@@ -455,6 +455,15 @@ DASHBOARD_HTML = """
             padding: 2px 10px; font-size: 11px; cursor: pointer;
         }
         .restart-btn:hover { border-color: #3CE3AB; color: #3CE3AB; }
+        .strat-filter-select {
+            background: #0E1218; border: 1px solid #2A3441; color: #67778E;
+            padding: 2px 6px; font-size: 11px; outline: none;
+        }
+        .pos-badge {
+            margin-left: 6px; font-size: 11px; padding: 1px 5px; border: 1px solid;
+        }
+        .pos-badge.pos-long { color: #3CE3AB; border-color: #3CE3AB; }
+        .pos-badge.pos-short { color: #F23674; border-color: #F23674; }
         
         .no-trades {
             text-align: center;
@@ -485,15 +494,21 @@ DASHBOARD_HTML = """
         
         <div class="main-content">
             <div class="left-panel">
-                <div class="section-header">Strategies<span>({{ strategies|length }})</span></div>
+                <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>Strategies<span>({{ strategies|length }})</span></div>
+                    <select id="strat-filter" onchange="filterStrategies()" class="strat-filter-select">
+                        <option value="active">Active</option>
+                        <option value="all">All</option>
+                    </select>
+                </div>
                 <div class="scroll-content">
                 <div class="strategies-grid">
                     {% for strat_name, data in strategies.items() %}
-                    <div class="strategy-card" data-symbol="{{ data.ws_symbol }}" data-strat="{{ strat_name }}">
+                    <div class="strategy-card" data-symbol="{{ data.ws_symbol }}" data-strat="{{ strat_name }}" data-has-position="{{ 'yes' if data.position else 'no' }}">
                         <div class="strategy-header">
                             <div>
                                 <div class="strategy-name">{{ data.name }}</div>
-                                <div class="strategy-pair">{{ data.ws_symbol }}</div>
+                                <div class="strategy-pair">{{ data.ws_symbol }}{% if data.position %} <span class="pos-badge pos-{{ data.position.direction }}">{{ data.position.direction.upper() }} {{ data.leverage }}x</span>{% endif %}</div>
                             </div>
                             <div class="strategy-filters">{{ data.filters }}</div>
                         </div>
@@ -623,6 +638,16 @@ DASHBOARD_HTML = """
                 .then(d => { btn.textContent = d.status === 'ok' ? 'Restarting...' : 'Error'; setTimeout(() => location.reload(), 3000); })
                 .catch(() => { btn.textContent = 'Error'; btn.style.color = '#F23674'; });
         }
+
+        function filterStrategies() {
+            const filter = document.getElementById('strat-filter').value;
+            document.querySelectorAll('.strategy-card').forEach(card => {
+                const hasPos = card.dataset.hasPosition === 'yes';
+                if (filter === 'all') card.style.display = '';
+                else card.style.display = hasPos ? '' : 'none';
+            });
+        }
+        filterStrategies();
 
         const positions = {{ positions_json|safe }};
         const prices = {};
@@ -799,11 +824,13 @@ def dashboard():
             strat_type = meta['strategy_type']
             display_name = meta['name']
             filters = meta['filters_description']
+            leverage = meta.get('leverage', 1)
         else:
             ws_symbol = extract_symbol_from_strategy(strategy_name)
             strat_type = get_strategy_type(strategy_name)
             display_name = get_strategy_display_name(strategy_name)
             filters = get_strategy_filters(strategy_name)
+            leverage = 1
         
         ws_symbols.add(ws_symbol.lower() + '@ticker')
         
@@ -849,6 +876,7 @@ def dashboard():
             'filters': filters,
             'ws_symbol': ws_symbol,
             'strat_type': strat_type,
+            'leverage': leverage,
             'balance': balance,
             'pnl': pnl,
             'pnl_pct': pnl_pct,

@@ -74,6 +74,7 @@ class Strategy(ABC):
             'ws_symbol': ws_symbol,
             'strategy_type': self.strategy_type,
             'filters_description': self.filters_description,
+            'leverage': self.leverage,
         }
 
 
