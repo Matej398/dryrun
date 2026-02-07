@@ -169,6 +169,7 @@ DASHBOARD_HTML = """
 <html>
 <head>
     <title>DRYRUN v5.1 - Dynamic Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'><rect fill='%2367778E' x='0' y='0' width='10' height='1'/><rect fill='%2367778E' x='0' y='7' width='10' height='1'/><rect fill='%2367778E' x='0' y='1' width='1' height='6'/><rect fill='%2367778E' x='9' y='1' width='1' height='6'/><rect fill='%233CE3AB' x='3' y='2' width='1' height='1'/><rect fill='%233CE3AB' x='6' y='2' width='1' height='1'/><rect fill='%2367778E' x='2' y='4' width='1' height='1'/><rect fill='%2367778E' x='7' y='4' width='1' height='1'/><rect fill='%2367778E' x='3' y='5' width='4' height='1'/></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -465,6 +466,9 @@ DASHBOARD_HTML = """
         }
         .pos-badge.pos-long { color: #3CE3AB; background: rgba(60,227,171,0.12); }
         .pos-badge.pos-short { color: #F23674; background: rgba(242,54,116,0.12); }
+        .sortable { cursor: pointer; user-select: none; }
+        .sortable:hover { color: #3CE3AB; }
+        #sort-arrow { font-size: 10px; }
         
         .no-trades {
             text-align: center;
@@ -582,7 +586,7 @@ DASHBOARD_HTML = """
                             <th>Exit</th>
                             <th>P&L</th>
                             <th>Result</th>
-                            <th>Time</th>
+                            <th class="sortable" onclick="sortTrades()" id="time-header">Time <span id="sort-arrow">▼</span></th>
                             <th>Hold</th>
                         </tr>
                     </thead>
@@ -649,6 +653,17 @@ DASHBOARD_HTML = """
             });
         }
         filterStrategies();
+
+        let sortDesc = true;
+        function sortTrades() {
+            const tbody = document.querySelector('#trades-table tbody');
+            if (!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            sortDesc = !sortDesc;
+            rows.reverse();
+            rows.forEach(r => tbody.appendChild(r));
+            document.getElementById('sort-arrow').textContent = sortDesc ? '▼' : '▲';
+        }
 
         const positions = {{ positions_json|safe }};
         const prices = {};
