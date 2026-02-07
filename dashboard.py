@@ -460,10 +460,11 @@ DASHBOARD_HTML = """
             padding: 2px 6px; font-size: 11px; outline: none;
         }
         .pos-badge {
-            margin-left: 6px; font-size: 11px; padding: 1px 5px; border: 1px solid;
+            margin-left: 6px; font-size: 10px; padding: 2px 6px;
+            font-variant: small-caps; letter-spacing: 0.5px;
         }
-        .pos-badge.pos-long { color: #3CE3AB; border-color: #3CE3AB; }
-        .pos-badge.pos-short { color: #F23674; border-color: #F23674; }
+        .pos-badge.pos-long { color: #0E1218; background: #3CE3AB; }
+        .pos-badge.pos-short { color: #0E1218; background: #F23674; }
         
         .no-trades {
             text-align: center;
@@ -508,7 +509,7 @@ DASHBOARD_HTML = """
                         <div class="strategy-header">
                             <div>
                                 <div class="strategy-name">{{ data.name }}</div>
-                                <div class="strategy-pair">{{ data.ws_symbol }}{% if data.position %} <span class="pos-badge pos-{{ data.position.direction }}">{{ data.position.direction.upper() }} {{ data.leverage }}x</span>{% endif %}</div>
+                                <div class="strategy-pair">{{ data.ws_symbol }}{% if data.position %} <span class="pos-badge pos-{{ data.position.direction }}">{{ data.position.direction }} {{ data.leverage }}x</span>{% endif %}</div>
                             </div>
                             <div class="strategy-filters">{{ data.filters }}</div>
                         </div>
