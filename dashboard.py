@@ -169,7 +169,7 @@ DASHBOARD_HTML = """
 <html>
 <head>
     <title>DRYRUN v5.1 - Dynamic Dashboard</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'><rect fill='%2367778E' x='0' y='0' width='10' height='1'/><rect fill='%2367778E' x='0' y='7' width='10' height='1'/><rect fill='%2367778E' x='0' y='1' width='1' height='6'/><rect fill='%2367778E' x='9' y='1' width='1' height='6'/><rect fill='%233CE3AB' x='3' y='2' width='1' height='1'/><rect fill='%233CE3AB' x='6' y='2' width='1' height='1'/><rect fill='%2367778E' x='2' y='4' width='1' height='1'/><rect fill='%2367778E' x='7' y='4' width='1' height='1'/><rect fill='%2367778E' x='3' y='5' width='4' height='1'/></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'><rect fill='%23000' x='0' y='0' width='10' height='1'/><rect fill='%23000' x='0' y='7' width='10' height='1'/><rect fill='%23000' x='0' y='1' width='1' height='6'/><rect fill='%23000' x='9' y='1' width='1' height='6'/><rect fill='%23000' x='3' y='2' width='1' height='1'/><rect fill='%23000' x='6' y='2' width='1' height='1'/><rect fill='%23000' x='2' y='4' width='1' height='1'/><rect fill='%23000' x='7' y='4' width='1' height='1'/><rect fill='%23000' x='3' y='5' width='4' height='1'/></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -469,6 +469,8 @@ DASHBOARD_HTML = """
         .sortable { cursor: pointer; user-select: none; }
         .sortable:hover { color: #3CE3AB; }
         #sort-arrow { font-size: 10px; }
+        .strat-cell { cursor: pointer; }
+        .strat-highlight { color: #3CE3AB; }
         
         .no-trades {
             text-align: center;
@@ -592,9 +594,9 @@ DASHBOARD_HTML = """
                     </thead>
                     <tbody>
                         {% for trade in trades[:100] %}
-                        <tr class="trade-row{% if loop.index > 50 %} hidden-row{% endif %}" data-row="{{ loop.index }}">
+                        <tr class="trade-row{% if loop.index > 50 %} hidden-row{% endif %}" data-row="{{ loop.index }}" data-strategy="{{ trade.strategy_name }}">
                             <td>{{ trade.pair }}</td>
-                            <td>{{ trade.strategy_name }}</td>
+                            <td class="strat-cell">{{ trade.strategy_name }}</td>
                             <td class="filter-cell">{{ trade.filter }}</td>
                             <td><span class="badge badge-{{ trade.direction }}">{{ trade.direction.upper() }}</span></td>
                             <td>{{ trade.entry_price|fmt_price }}</td>
@@ -664,6 +666,18 @@ DASHBOARD_HTML = """
             rows.forEach(r => tbody.appendChild(r));
             document.getElementById('sort-arrow').textContent = sortDesc ? '▼' : '▲';
         }
+
+        document.querySelectorAll('.strat-cell').forEach(cell => {
+            cell.addEventListener('mouseenter', () => {
+                const name = cell.textContent.trim();
+                document.querySelectorAll('.strat-cell').forEach(c => {
+                    if (c.textContent.trim() === name) c.classList.add('strat-highlight');
+                });
+            });
+            cell.addEventListener('mouseleave', () => {
+                document.querySelectorAll('.strat-highlight').forEach(c => c.classList.remove('strat-highlight'));
+            });
+        });
 
         const positions = {{ positions_json|safe }};
         const prices = {};
