@@ -470,7 +470,7 @@ DASHBOARD_HTML = """
         .sortable:hover { color: #3CE3AB; }
         #sort-arrow { font-size: 10px; }
         .strat-cell { cursor: pointer; }
-        .strat-highlight { color: #3CE3AB; }
+        .strat-highlight { color: #3CE3AB; background: rgba(60,227,171,0.15); }
         
         .no-trades {
             text-align: center;
