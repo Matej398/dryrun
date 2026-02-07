@@ -587,7 +587,7 @@ DASHBOARD_HTML = """
                         </tr>
                     </thead>
                     <tbody>
-                        {% for trade in trades[-100:]|reverse %}
+                        {% for trade in trades[:100] %}
                         <tr class="trade-row{% if loop.index > 50 %} hidden-row{% endif %}" data-row="{{ loop.index }}">
                             <td>{{ trade.pair }}</td>
                             <td>{{ trade.strategy_name }}</td>
