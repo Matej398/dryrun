@@ -460,11 +460,11 @@ DASHBOARD_HTML = """
             padding: 2px 6px; font-size: 11px; outline: none;
         }
         .pos-badge {
-            margin-left: 6px; font-size: 10px; padding: 2px 6px;
-            font-variant: small-caps; letter-spacing: 0.5px;
+            margin-left: 6px; font-size: 11px; padding: 2px 6px;
+            border: 1px solid; letter-spacing: 0.3px;
         }
-        .pos-badge.pos-long { color: #0E1218; background: #3CE3AB; }
-        .pos-badge.pos-short { color: #0E1218; background: #F23674; }
+        .pos-badge.pos-long { color: #3CE3AB; background: rgba(60,227,171,0.12); border-color: rgba(60,227,171,0.3); }
+        .pos-badge.pos-short { color: #F23674; background: rgba(242,54,116,0.12); border-color: rgba(242,54,116,0.3); }
         
         .no-trades {
             text-align: center;
