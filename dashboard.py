@@ -284,8 +284,9 @@ DASHBOARD_HTML = """
         .strategies-container {
             border: 1px solid #171E27;
             padding: 10px;
-            flex: 1;
-            min-height: 0;
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
         }
         .strategies-grid {
             display: flex;
@@ -294,8 +295,10 @@ DASHBOARD_HTML = """
             padding-bottom: 20px;
         }
         .no-strategies {
-            text-align: center;
-            padding: 40px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
             color: #67778E;
             font-size: 13px;
         }
@@ -589,7 +592,10 @@ DASHBOARD_HTML = """
             </div>
             
             <div class="right-panel">
-                <div class="section-header">Total Trades<span>({{ trades|length }})</span> <span style="margin-left:10px;font-size:12px;"><span class="positive">{{ total_wins }}W</span> / <span class="negative">{{ total_losses }}L</span></span></div>
+                <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>Total Trades<span>({{ trades|length }})</span></div>
+                    <div style="font-size:12px;">{% set win_pct = (total_wins / total_trades * 100) if total_trades > 0 else 0 %}{% set loss_pct = (total_losses / total_trades * 100) if total_trades > 0 else 0 %}<span class="positive">{{ total_wins }}W ({{ "%.0f"|format(win_pct) }}%)</span> / <span class="negative">{{ total_losses }}L ({{ "%.0f"|format(loss_pct) }}%)</span></div>
+                </div>
                 <div class="scroll-content">
                 {% if trades %}
                 <table class="trades-table" id="trades-table">
