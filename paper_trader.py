@@ -8,7 +8,7 @@ Add new strategy = drop a .py file, restart the bot.
 import ccxt
 import pandas as pd
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import json
 import os
 import sys
@@ -166,6 +166,27 @@ def build_higher_timeframe(df, timeframe):
     }).dropna()
 
     return resampled.reset_index()
+
+
+# Timeframe durations for candle-close validation
+TIMEFRAME_DURATIONS = {
+    '1m': timedelta(minutes=1), '5m': timedelta(minutes=5),
+    '15m': timedelta(minutes=15), '30m': timedelta(minutes=30),
+    '1h': timedelta(hours=1), '4h': timedelta(hours=4), '1d': timedelta(days=1),
+}
+
+
+def is_candle_complete(df, timeframe):
+    """Check if the latest candle in df is fully closed (not still forming).
+    Uses the candle's exchange timestamp + timeframe duration + 15s buffer."""
+    if df is None or len(df) < 2:
+        return False
+    duration = TIMEFRAME_DURATIONS.get(timeframe)
+    if duration is None:
+        return True
+    candle_close_time = df['timestamp'].iloc[-1] + duration
+    now_utc = datetime.now(timezone.utc)
+    return now_utc >= candle_close_time + timedelta(seconds=15)
 
 
 # =============================================================================
@@ -471,17 +492,18 @@ def run_trading_bot():
                         close_position(state, strategy_name, position, exit_price, exit_reason)
                         save_state(state)
 
-                # Check for new entry signals (only if no open position)
+                # Check for new entry signals (only if no open position AND candle is closed)
                 if len(strategy_state['positions']) == 0:
-                    signal = strategy.check_signal(df, h4_df, daily_df)
+                    if is_candle_complete(df, strategy.timeframe):
+                        signal = strategy.check_signal(df, h4_df, daily_df)
 
-                    # Safety: enforce long_only at engine level
-                    if strategy.long_only and signal == -1:
-                        signal = 0
+                        # Safety: enforce long_only at engine level
+                        if strategy.long_only and signal == -1:
+                            signal = 0
 
-                    if signal != 0:
-                        open_position(state, strategy_name, signal, current_price, config)
-                        save_state(state)
+                        if signal != 0:
+                            open_position(state, strategy_name, signal, current_price, config)
+                            save_state(state)
 
             # Print status every 15 minutes
             if current_time.minute % 15 == 0:

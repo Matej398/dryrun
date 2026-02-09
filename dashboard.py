@@ -648,7 +648,7 @@ DASHBOARD_HTML = """
                 <span id="ws-status">Connecting...</span>
             </div>
             <div style="display:flex;align-items:center;gap:12px;">
-                <span>Auto-refresh: 60s | {{ strategies|length }} strategies | ${{ "{:,.0f}".format(starting_balance) }}/strategy</span>
+                <span>Refresh: <span id="refresh-countdown">60</span>s | {{ strategies|length }} strategies | ${{ "{:,.0f}".format(starting_balance) }}/strategy</span>
                 <button class="restart-btn" onclick="restartServices()">Restart</button>
             </div>
         </div>
@@ -821,22 +821,25 @@ DASHBOARD_HTML = """
         
         connectWebSocket();
         
-        // Reload page every 5 min to clear memory and prevent Aw Snap crashes
-        setInterval(function() {
-            if (ws) ws.close();
-            location.reload();
-        }, 300000);
-
-        // Watchdog: if page freezes and recovers, force reload
+        // Auto-refresh countdown (60s) with freeze detection
+        let refreshCountdown = 60;
         let lastTick = Date.now();
         setInterval(function() {
             const now = Date.now();
-            // If more than 30s passed since last tick, page was likely frozen
+            // Freeze detection: if >30s passed since last tick, page was frozen
             if (now - lastTick > 30000) {
+                if (ws) ws.close();
                 location.reload();
+                return;
             }
             lastTick = now;
-        }, 5000);
+            refreshCountdown--;
+            document.getElementById('refresh-countdown').textContent = refreshCountdown;
+            if (refreshCountdown <= 0) {
+                if (ws) ws.close();
+                location.reload();
+            }
+        }, 1000);
         
         """ + BOT_JS + """
     </script>
