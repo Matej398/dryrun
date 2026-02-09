@@ -281,11 +281,23 @@ DASHBOARD_HTML = """
         .negative { color: #F23674; }
         .neutral { color: #f0f6fc; }
         
+        .strategies-container {
+            border: 1px solid #171E27;
+            padding: 10px;
+            flex: 1;
+            min-height: 0;
+        }
         .strategies-grid {
             display: flex;
             flex-direction: column;
             gap: 12px;
             padding-bottom: 20px;
+        }
+        .no-strategies {
+            text-align: center;
+            padding: 40px 20px;
+            color: #67778E;
+            font-size: 13px;
         }
         
         .strategy-card {
@@ -509,7 +521,8 @@ DASHBOARD_HTML = """
                     </select>
                 </div>
                 <div class="scroll-content">
-                <div class="strategies-grid">
+                <div class="strategies-container">
+                <div class="strategies-grid" id="strategies-grid">
                     {% for strat_name, data in strategies.items() %}
                     <div class="strategy-card" data-symbol="{{ data.ws_symbol }}" data-strat="{{ strat_name }}" data-has-position="{{ 'yes' if data.position else 'no' }}">
                         <div class="strategy-header">
@@ -570,11 +583,13 @@ DASHBOARD_HTML = """
                     </div>
                     {% endfor %}
                 </div>
+                <div class="no-strategies" id="no-strategies" style="display:none;">No active strategies</div>
+                </div>
                 </div>
             </div>
             
             <div class="right-panel">
-                <div class="section-header">Total Trades<span>({{ trades|length }})</span></div>
+                <div class="section-header">Total Trades<span>({{ trades|length }})</span> <span style="margin-left:10px;font-size:12px;"><span class="positive">{{ total_wins }}W</span> / <span class="negative">{{ total_losses }}L</span></span></div>
                 <div class="scroll-content">
                 {% if trades %}
                 <table class="trades-table" id="trades-table">
@@ -648,11 +663,13 @@ DASHBOARD_HTML = """
 
         function filterStrategies() {
             const filter = document.getElementById('strat-filter').value;
+            let visibleCount = 0;
             document.querySelectorAll('.strategy-card').forEach(card => {
                 const hasPos = card.dataset.hasPosition === 'yes';
-                if (filter === 'all') card.style.display = '';
-                else card.style.display = hasPos ? '' : 'none';
+                if (filter === 'all') { card.style.display = ''; visibleCount++; }
+                else { const show = hasPos; card.style.display = show ? '' : 'none'; if (show) visibleCount++; }
             });
+            document.getElementById('no-strategies').style.display = visibleCount === 0 ? '' : 'none';
         }
         filterStrategies();
 
@@ -798,11 +815,22 @@ DASHBOARD_HTML = """
         
         connectWebSocket();
         
-        // Reload page every 60s to clear memory
-        setTimeout(function() { 
+        // Reload page every 5 min to clear memory and prevent Aw Snap crashes
+        setInterval(function() {
             if (ws) ws.close();
-            location.reload(); 
-        }, 60000);
+            location.reload();
+        }, 300000);
+
+        // Watchdog: if page freezes and recovers, force reload
+        let lastTick = Date.now();
+        setInterval(function() {
+            const now = Date.now();
+            // If more than 30s passed since last tick, page was likely frozen
+            if (now - lastTick > 30000) {
+                location.reload();
+            }
+            lastTick = now;
+        }, 5000);
         
         """ + BOT_JS + """
     </script>
@@ -826,6 +854,8 @@ def dashboard():
     strategies = {}
     total_balance = 0
     total_trades = 0
+    total_wins = 0
+    total_losses = 0
     positions_json = {}
     all_trades = []
     ws_symbols = set()
@@ -900,6 +930,8 @@ def dashboard():
         
         total_balance += balance
         total_trades += wins + losses
+        total_wins += wins
+        total_losses += losses
         
         strategies[strategy_name] = {
             'name': display_name,
@@ -954,6 +986,8 @@ def dashboard():
         total_pnl=total_pnl,
         total_pnl_pct=total_pnl_pct,
         total_trades=total_trades,
+        total_wins=total_wins,
+        total_losses=total_losses,
         total_starting=total_starting,
         total_exposure=total_exposure,
         leverage_exposure=leverage_exposure,
