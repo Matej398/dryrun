@@ -152,6 +152,16 @@ def fetch_candles(exchange, symbol, timeframe, limit=500):
         return None
 
 
+def fetch_ticker_price(exchange, symbol):
+    """Fetch real-time ticker price. Returns (last_price, high_24h, low_24h) or None on failure."""
+    try:
+        ticker = exchange.fetch_ticker(symbol)
+        return ticker['last']
+    except Exception as e:
+        log_message(f"Error fetching ticker for {symbol}: {e}")
+        return None
+
+
 def build_higher_timeframe(df, timeframe):
     """Build higher timeframe (4H or Daily) from lower timeframe data"""
     tmp = df.copy()
@@ -261,27 +271,33 @@ def open_position(state, strategy_name, signal, current_price, config):
     return position
 
 
-def check_exit_conditions(position, current_price, current_time, time_stop_hours=48):
-    """Check if position should be closed - exits at ACTUAL market price"""
+def check_exit_conditions(position, current_price, current_time, time_stop_hours=48, candle_high=None, candle_low=None):
+    """Check if position should be closed.
+    Uses current_price for exit, but also checks candle_high/candle_low
+    to detect intra-candle stop/TP breaches that the close price might miss."""
     entry_time = datetime.fromisoformat(position['entry_time'])
     hours_in_trade = (current_time - entry_time).total_seconds() / 3600
 
+    # Use candle extremes if available, otherwise fall back to current_price
+    check_low = candle_low if candle_low is not None else current_price
+    check_high = candle_high if candle_high is not None else current_price
+
     if position['side'] == 'LONG':
-        # Check stop loss
-        if current_price <= position['stop_loss']:
+        # Check stop loss (price went below stop at any point)
+        if check_low <= position['stop_loss']:
             return 'stop_loss', current_price
 
-        # Check take profit
-        if current_price >= position['take_profit']:
+        # Check take profit (price went above TP at any point)
+        if check_high >= position['take_profit']:
             return 'take_profit', current_price
 
     else:  # SHORT
-        # Check stop loss
-        if current_price >= position['stop_loss']:
+        # Check stop loss (price went above stop at any point)
+        if check_high >= position['stop_loss']:
             return 'stop_loss', current_price
 
-        # Check take profit
-        if current_price <= position['take_profit']:
+        # Check take profit (price went below TP at any point)
+        if check_low <= position['take_profit']:
             return 'take_profit', current_price
 
     # Check time stop (None = disabled)
@@ -437,9 +453,14 @@ def run_trading_bot():
         strategy_state = state[strategy_name]
         if len(strategy_state['positions']) > 0:
             try:
-                df = fetch_candles(exchange, strategy.symbol, strategy.timeframe, limit=5)
-                if df is not None:
-                    current_price = df['close'].iloc[-1]
+                # Use real-time ticker price for accurate exit check
+                current_price = fetch_ticker_price(exchange, strategy.symbol)
+                if current_price is None:
+                    # Fallback to candle close
+                    df = fetch_candles(exchange, strategy.symbol, strategy.timeframe, limit=5)
+                    if df is not None:
+                        current_price = df['close'].iloc[-1]
+                if current_price is not None:
                     for position in strategy_state['positions'][:]:
                         exit_reason, exit_price = check_exit_conditions(
                             position, current_price, current_time,
@@ -449,6 +470,8 @@ def run_trading_bot():
                             log_message(f"⚠️ STARTUP: Closing stale {strategy_name} position ({exit_reason})")
                             close_position(state, strategy_name, position, exit_price, exit_reason)
                             save_state(state)
+                else:
+                    log_message(f"⚠️ STARTUP: Cannot check {strategy_name} - no price data available")
             except Exception as e:
                 log_message(f"Startup check error for {strategy_name}: {e}")
 
@@ -460,41 +483,61 @@ def run_trading_bot():
             for strategy_name, strategy in enabled_strategies.items():
                 strategy_state = state[strategy_name]
                 config = strategy.get_config_dict()
+                has_position = len(strategy_state['positions']) > 0
 
-                # Fetch primary timeframe data
-                df = fetch_candles(exchange, strategy.symbol, strategy.timeframe)
-                if df is None:
-                    continue
+                # === EXIT CHECKS (ALWAYS run, even if candle fetch fails) ===
+                if has_position:
+                    # Use real-time ticker for exits — more reliable than candle close
+                    ticker_price = fetch_ticker_price(exchange, strategy.symbol)
+                    if ticker_price is not None:
+                        # Also fetch latest candle high/low to catch intra-candle breaches
+                        candle_high = None
+                        candle_low = None
+                        try:
+                            mini_df = fetch_candles(exchange, strategy.symbol, strategy.timeframe, limit=2)
+                            if mini_df is not None:
+                                candle_high = mini_df['high'].iloc[-1]
+                                candle_low = mini_df['low'].iloc[-1]
+                        except Exception:
+                            pass  # Candle fetch failed, ticker price alone is enough
 
-                # Build higher timeframes as needed
-                h4_df = None
-                daily_df = None
+                        for position in strategy_state['positions'][:]:
+                            exit_reason, exit_price = check_exit_conditions(
+                                position, ticker_price, current_time,
+                                time_stop_hours=strategy.time_stop_hours,
+                                candle_high=candle_high,
+                                candle_low=candle_low
+                            )
+                            if exit_reason:
+                                close_position(state, strategy_name, position, exit_price, exit_reason)
+                                save_state(state)
+                    else:
+                        log_message(f"⚠️ WARNING: Cannot check exits for {strategy_name} - ticker fetch failed")
 
-                if strategy.timeframe == '15m':
-                    if strategy.needs_h4_filter:
-                        h4_df = build_higher_timeframe(df, '4h')
-                    if strategy.needs_daily_filter:
-                        daily_df = build_higher_timeframe(df, '1D')
-                elif strategy.timeframe == '4h':
-                    if strategy.needs_daily_filter:
-                        daily_df = build_higher_timeframe(df, '1D')
-                # For '1d' strategies: no higher TF needed
-
-                current_price = df['close'].iloc[-1]
-
-                # Check exits on open positions
-                for position in strategy_state['positions'][:]:
-                    exit_reason, exit_price = check_exit_conditions(
-                        position, current_price, current_time,
-                        time_stop_hours=strategy.time_stop_hours
-                    )
-                    if exit_reason:
-                        close_position(state, strategy_name, position, exit_price, exit_reason)
-                        save_state(state)
-
-                # Check for new entry signals (only if no open position AND candle is closed)
+                # === ENTRY SIGNALS (only if no position, candle must be complete) ===
                 if len(strategy_state['positions']) == 0:
+                    df = fetch_candles(exchange, strategy.symbol, strategy.timeframe)
+                    if df is None:
+                        continue
+
                     if is_candle_complete(df, strategy.timeframe):
+                        # Build higher timeframes as needed
+                        h4_df = None
+                        daily_df = None
+                        if strategy.timeframe == '15m':
+                            if strategy.needs_h4_filter:
+                                h4_df = build_higher_timeframe(df, '4h')
+                            if strategy.needs_daily_filter:
+                                daily_df = build_higher_timeframe(df, '1D')
+                        elif strategy.timeframe == '4h':
+                            if strategy.needs_daily_filter:
+                                daily_df = build_higher_timeframe(df, '1D')
+
+                        # Use real-time ticker for entry price (more realistic fill)
+                        entry_price = fetch_ticker_price(exchange, strategy.symbol)
+                        if entry_price is None:
+                            entry_price = df['close'].iloc[-1]  # Fallback to candle close
+
                         signal = strategy.check_signal(df, h4_df, daily_df)
 
                         # Safety: enforce long_only at engine level
@@ -502,7 +545,7 @@ def run_trading_bot():
                             signal = 0
 
                         if signal != 0:
-                            open_position(state, strategy_name, signal, current_price, config)
+                            open_position(state, strategy_name, signal, entry_price, config)
                             save_state(state)
 
             # Print status every 15 minutes
