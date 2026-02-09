@@ -187,14 +187,16 @@ TIMEFRAME_DURATIONS = {
 
 
 def is_candle_complete(df, timeframe):
-    """Check if the latest candle in df is fully closed (not still forming).
-    Uses the candle's exchange timestamp + timeframe duration + 15s buffer."""
-    if df is None or len(df) < 2:
+    """Check if we have a recently closed candle to trade on.
+    Binance always returns the forming candle as iloc[-1], so we check
+    iloc[-2] (the latest CLOSED candle) to confirm fresh data is available."""
+    if df is None or len(df) < 3:
         return False
     duration = TIMEFRAME_DURATIONS.get(timeframe)
     if duration is None:
         return True
-    candle_close_time = df['timestamp'].iloc[-1] + duration
+    # Check the second-to-last candle (latest closed candle)
+    candle_close_time = df['timestamp'].iloc[-2] + duration
     now_utc = datetime.now(timezone.utc)
     return now_utc >= candle_close_time + timedelta(seconds=15)
 
@@ -521,24 +523,27 @@ def run_trading_bot():
                         continue
 
                     if is_candle_complete(df, strategy.timeframe):
-                        # Build higher timeframes as needed
+                        # Strip the forming candle — only use closed candle data for signals
+                        df_closed = df.iloc[:-1].copy()
+
+                        # Build higher timeframes from closed data only
                         h4_df = None
                         daily_df = None
                         if strategy.timeframe == '15m':
                             if strategy.needs_h4_filter:
-                                h4_df = build_higher_timeframe(df, '4h')
+                                h4_df = build_higher_timeframe(df_closed, '4h')
                             if strategy.needs_daily_filter:
-                                daily_df = build_higher_timeframe(df, '1D')
+                                daily_df = build_higher_timeframe(df_closed, '1D')
                         elif strategy.timeframe == '4h':
                             if strategy.needs_daily_filter:
-                                daily_df = build_higher_timeframe(df, '1D')
+                                daily_df = build_higher_timeframe(df_closed, '1D')
 
                         # Use real-time ticker for entry price (more realistic fill)
                         entry_price = fetch_ticker_price(exchange, strategy.symbol)
                         if entry_price is None:
-                            entry_price = df['close'].iloc[-1]  # Fallback to candle close
+                            entry_price = df_closed['close'].iloc[-1]
 
-                        signal = strategy.check_signal(df, h4_df, daily_df)
+                        signal = strategy.check_signal(df_closed, h4_df, daily_df)
 
                         # Safety: enforce long_only at engine level
                         if strategy.long_only and signal == -1:
