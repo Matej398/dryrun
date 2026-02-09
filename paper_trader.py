@@ -275,8 +275,8 @@ def open_position(state, strategy_name, signal, current_price, config):
 
 def check_exit_conditions(position, current_price, current_time, time_stop_hours=48, candle_high=None, candle_low=None):
     """Check if position should be closed.
-    Uses current_price for exit, but also checks candle_high/candle_low
-    to detect intra-candle stop/TP breaches that the close price might miss."""
+    When SL/TP is breached, exit price = the SL/TP level (realistic fill).
+    Also checks candle_high/candle_low to detect intra-candle breaches."""
     entry_time = datetime.fromisoformat(position['entry_time'])
     hours_in_trade = (current_time - entry_time).total_seconds() / 3600
 
@@ -287,20 +287,20 @@ def check_exit_conditions(position, current_price, current_time, time_stop_hours
     if position['side'] == 'LONG':
         # Check stop loss (price went below stop at any point)
         if check_low <= position['stop_loss']:
-            return 'stop_loss', current_price
+            return 'stop_loss', position['stop_loss']
 
         # Check take profit (price went above TP at any point)
         if check_high >= position['take_profit']:
-            return 'take_profit', current_price
+            return 'take_profit', position['take_profit']
 
     else:  # SHORT
         # Check stop loss (price went above stop at any point)
         if check_high >= position['stop_loss']:
-            return 'stop_loss', current_price
+            return 'stop_loss', position['stop_loss']
 
         # Check take profit (price went below TP at any point)
         if check_low <= position['take_profit']:
-            return 'take_profit', current_price
+            return 'take_profit', position['take_profit']
 
     # Check time stop (None = disabled)
     if time_stop_hours is not None and hours_in_trade >= time_stop_hours:
@@ -447,6 +447,7 @@ def run_trading_bot():
         log_message("Migrated state from $1500 to $1000 per strategy (PnL preserved)")
 
     # === STARTUP CHECK: Close any positions that are past SL/TP ===
+    # Fetches candle history to detect breaches that happened while bot was down
     log_message("Checking for stale positions past SL/TP...")
     current_time = datetime.now()
     for strategy_name, strategy in enabled_strategies.items():
@@ -458,15 +459,35 @@ def run_trading_bot():
                 # Use real-time ticker price for accurate exit check
                 current_price = fetch_ticker_price(exchange, strategy.symbol)
                 if current_price is None:
-                    # Fallback to candle close
                     df = fetch_candles(exchange, strategy.symbol, strategy.timeframe, limit=5)
                     if df is not None:
                         current_price = df['close'].iloc[-1]
+
+                # Fetch candle history to find high/low extremes since position entry
+                # This catches SL/TP breaches that happened while bot was down
+                df_hist = None
+                try:
+                    df_hist = fetch_candles(exchange, strategy.symbol, strategy.timeframe, limit=200)
+                except Exception:
+                    pass  # Candle fetch failed, ticker price alone still works
+
                 if current_price is not None:
                     for position in strategy_state['positions'][:]:
+                        # Compute per-position candle high/low since entry
+                        pos_high = None
+                        pos_low = None
+                        if df_hist is not None and len(df_hist) > 0:
+                            entry_time = pd.Timestamp(position['entry_time'])
+                            since_entry = df_hist[df_hist['timestamp'] >= entry_time]
+                            if len(since_entry) > 0:
+                                pos_high = since_entry['high'].max()
+                                pos_low = since_entry['low'].min()
+
                         exit_reason, exit_price = check_exit_conditions(
                             position, current_price, current_time,
-                            time_stop_hours=strategy.time_stop_hours
+                            time_stop_hours=strategy.time_stop_hours,
+                            candle_high=pos_high,
+                            candle_low=pos_low
                         )
                         if exit_reason:
                             log_message(f"⚠️ STARTUP: Closing stale {strategy_name} position ({exit_reason})")
