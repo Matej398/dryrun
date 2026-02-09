@@ -137,10 +137,10 @@ BOT_CSS = """
     flex-shrink: 0;
 }
 
-/* Sound toggle (pixel bell) */
+/* Sound toggle (bell icon) */
 .sound-toggle {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
     flex-shrink: 0;
     opacity: 0.6;
@@ -149,12 +149,10 @@ BOT_CSS = """
 .sound-toggle:hover {
     opacity: 1;
 }
-.sound-toggle.muted .bell-on { opacity: 0; }
-.sound-toggle.muted .bell-off { opacity: 1; }
-.sound-toggle .bell-off { opacity: 0; }
-.bell-pixel {
-    fill: #f0f6fc;
-}
+.sound-toggle.muted .bell-on { display: none; }
+.sound-toggle.muted .bell-off { display: block; }
+.sound-toggle .bell-on { display: block; }
+.sound-toggle .bell-off { display: none; }
 """
 
 # =============================================================================
@@ -206,31 +204,14 @@ BOT_HTML = """
     
     <div class="version-badge">v5.1</div>
     
-    <svg class="sound-toggle" id="sound-toggle" viewBox="0 0 8 8" xmlns="http://www.w3.org/2000/svg" onclick="toggleSound()">
-        <!-- Bell On -->
-        <g class="bell-on">
-            <rect class="bell-pixel" x="3" y="0" width="2" height="1"/>
-            <rect class="bell-pixel" x="2" y="1" width="4" height="1"/>
-            <rect class="bell-pixel" x="1" y="2" width="6" height="3"/>
-            <rect class="bell-pixel" x="0" y="5" width="8" height="1"/>
-            <rect class="bell-pixel" x="3" y="6" width="2" height="1"/>
-        </g>
-        <!-- Bell Off (muted - X over bell) -->
-        <g class="bell-off">
-            <rect class="bell-pixel" x="3" y="0" width="2" height="1"/>
-            <rect class="bell-pixel" x="2" y="1" width="4" height="1"/>
-            <rect class="bell-pixel" x="1" y="2" width="6" height="3"/>
-            <rect class="bell-pixel" x="0" y="5" width="8" height="1"/>
-            <rect class="bell-pixel" x="3" y="6" width="2" height="1"/>
-            <!-- X slash -->
-            <rect class="bell-pixel" style="fill:#F23674" x="0" y="0" width="1" height="1"/>
-            <rect class="bell-pixel" style="fill:#F23674" x="1" y="1" width="1" height="1"/>
-            <rect class="bell-pixel" style="fill:#F23674" x="2" y="2" width="1" height="1"/>
-            <rect class="bell-pixel" style="fill:#F23674" x="5" y="5" width="1" height="1"/>
-            <rect class="bell-pixel" style="fill:#F23674" x="6" y="6" width="1" height="1"/>
-            <rect class="bell-pixel" style="fill:#F23674" x="7" y="7" width="1" height="1"/>
-        </g>
-    </svg>
+    <div class="sound-toggle" id="sound-toggle" onclick="toggleSound()">
+        <svg class="bell-on" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 17V18C15 19.6569 13.6569 21 12 21C10.3431 21 9 19.6569 9 18V17M15 17H9M15 17H18.5905C18.973 17 19.1652 17 19.3201 16.9478C19.616 16.848 19.8475 16.6156 19.9473 16.3198C19.9997 16.1643 19.9997 15.9715 19.9997 15.5859C19.9997 15.4172 19.9995 15.3329 19.9863 15.2524C19.9614 15.1004 19.9024 14.9563 19.8126 14.8312C19.7651 14.7651 19.7048 14.7048 19.5858 14.5858L19.1963 14.1963C19.0706 14.0706 19 13.9001 19 13.7224V10C19 6.134 15.866 2.99999 12 3C8.13401 3.00001 5 6.13401 5 10V13.7224C5 13.9002 4.92924 14.0706 4.80357 14.1963L4.41406 14.5858C4.29476 14.7051 4.23504 14.765 4.1875 14.8312C4.09766 14.9564 4.03815 15.1004 4.0132 15.2524C4 15.3329 4 15.4172 4 15.586C4 15.9715 4 16.1642 4.05245 16.3197C4.15225 16.6156 4.3848 16.848 4.68066 16.9478C4.83556 17 5.02701 17 5.40956 17H9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <svg class="bell-off" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 17V18C9 19.6569 10.3431 21 12 21C13.6569 21 15 19.6569 15 18V17M9 17L15 17M9 17L5.00022 17.0002C4.48738 17.0002 4.06449 16.6141 4.00673 16.1168L4 15.9998V15.4141C4 15.1489 4.10544 14.8949 4.29297 14.7073L4.80371 14.1963C4.92939 14.0706 5 13.9003 5 13.7225V9.99986C5 8.15821 5.7112 6.48267 6.87393 5.23291M15 17L18.9999 17M5 3L21 19M18.9995 12.999L19.0004 10C19.0004 6.13402 15.8665 3 12.0005 3L11.7598 3.00406C10.9548 3.03125 10.1845 3.19404 9.4707 3.47081" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
 </div>
 """
 
@@ -248,37 +229,20 @@ let botState = {
     isTyping: false
 };
 
-// Sound effects (Web Audio API - lightweight blips)
-let audioContext = null;
+// Sound effects (MP3 notification)
+let notificationSound = null;
 
 function initAudio() {
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (!notificationSound) {
+        notificationSound = new Audio('/static/notification.mp3');
+        notificationSound.volume = 0.5;
     }
 }
 
 function playBlip(type) {
-    if (!botState.soundEnabled || !audioContext) return;
-    
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    if (type === 'open') {
-        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.1);
-    } else if (type === 'close') {
-        oscillator.frequency.setValueAtTime(1200, audioContext.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.1);
-    }
-    
-    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.15);
+    if (!botState.soundEnabled || !notificationSound) return;
+    notificationSound.currentTime = 0;
+    notificationSound.play().catch(function() {});
 }
 
 function toggleSound() {
