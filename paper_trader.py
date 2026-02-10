@@ -15,6 +15,9 @@ import sys
 import signal
 import atexit
 
+# Force line-buffered stdout so logs flush immediately (even without python -u)
+sys.stdout.reconfigure(line_buffering=True)
+
 from strategies import discover_strategies
 from strategy_base import calculate_cci, calculate_rsi, h4_filter, daily_filter
 
