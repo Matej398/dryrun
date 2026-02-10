@@ -263,6 +263,7 @@ function loadSoundPreference() {
     const saved = localStorage.getItem('dryrunSoundEnabled');
     if (saved === 'true') {
         botState.soundEnabled = true;
+        initAudio();
         document.getElementById('sound-toggle').classList.remove('muted');
     } else {
         document.getElementById('sound-toggle').classList.add('muted');

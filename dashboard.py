@@ -842,6 +842,38 @@ DASHBOARD_HTML = """
         }, 1000);
         
         """ + BOT_JS + """
+
+        // Detect new trades/positions by comparing with localStorage
+        // Runs in DOMContentLoaded so sound is already initialized by bot JS
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentOpenCount = Object.keys(positions).length;
+            const currentTradeCount = {{ total_trades }};
+            const prevOpenCount = parseInt(localStorage.getItem('dryrunOpenCount') || '0');
+            const prevTradeCount = parseInt(localStorage.getItem('dryrunTradeCount') || '-1');
+
+            // Only trigger on actual changes (not first load ever)
+            if (prevTradeCount >= 0) {
+                if (currentOpenCount > prevOpenCount) {
+                    // New position opened
+                    const keys = Object.keys(positions);
+                    if (keys.length > 0) {
+                        const lastKey = keys[keys.length - 1];
+                        const pos = positions[lastKey];
+                        onTradeOpen(lastKey, pos.direction, pos.entry_price);
+                    }
+                }
+                if (currentTradeCount > prevTradeCount) {
+                    // New trade closed
+                    {% if trades and trades|length > 0 %}
+                    const lastTrade = { strategy: '{{ trades[0].strategy_name }}', pnl: {{ trades[0].pnl }} };
+                    onTradeClose(lastTrade.strategy, lastTrade.pnl >= 0 ? 'win' : 'loss', lastTrade.pnl);
+                    {% endif %}
+                }
+            }
+
+            localStorage.setItem('dryrunOpenCount', currentOpenCount);
+            localStorage.setItem('dryrunTradeCount', currentTradeCount);
+        });
     </script>
 </body>
 </html>
