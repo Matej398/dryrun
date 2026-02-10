@@ -16,6 +16,7 @@ import signal
 import atexit
 
 from strategies import discover_strategies
+from strategy_base import calculate_cci, calculate_rsi, h4_filter, daily_filter
 
 # Load .env file if running locally (not via systemd)
 from pathlib import Path
@@ -565,6 +566,27 @@ def run_trading_bot():
                             entry_price = df_closed['close'].iloc[-1]
 
                         signal = strategy.check_signal(df_closed, h4_df, daily_df)
+
+                        # Debug: log indicator values and filter states
+                        dbg = [f"{strategy_name}:"]
+                        if hasattr(strategy, 'cci_oversold'):
+                            cci = calculate_cci(df_closed)
+                            dbg.append(f"CCI {cci.iloc[-2]:.0f}→{cci.iloc[-1]:.0f}")
+                        elif hasattr(strategy, 'rsi_oversold'):
+                            rsi = calculate_rsi(df_closed)
+                            dbg.append(f"RSI {rsi.iloc[-2]:.1f}→{rsi.iloc[-1]:.1f}")
+                        h4_dir_str = ""
+                        if h4_df is not None:
+                            h4_d = h4_filter(h4_df)
+                            h4_dir_str = 'bull' if h4_d > 0 else 'bear' if h4_d < 0 else 'flat'
+                            dbg.append(f"H4:{h4_dir_str}")
+                        if daily_df is not None:
+                            d_d = daily_filter(daily_df)
+                            d_dir_str = 'bull' if d_d > 0 else 'bear' if d_d < 0 else 'flat'
+                            dbg.append(f"D:{d_dir_str}")
+                        sig_str = {1: 'LONG', -1: 'SHORT', 0: 'none'}[signal]
+                        dbg.append(f"→ {sig_str}")
+                        log_message(" | ".join(dbg))
 
                         # Safety: enforce long_only at engine level
                         if strategy.long_only and signal == -1:
