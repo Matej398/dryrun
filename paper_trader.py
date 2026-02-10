@@ -119,7 +119,7 @@ def _migrate_state_to_1000(state, strategy_names):
 
 def save_state(state):
     """Save trading state to file"""
-    state['_last_updated'] = datetime.now().isoformat()
+    state['_last_updated'] = datetime.now(timezone.utc).isoformat()
     with open(STATE_FILE, 'w') as f:
         json.dump(state, f, indent=2, default=str)
 
@@ -149,7 +149,7 @@ def fetch_candles(exchange, symbol, timeframe, limit=500):
     try:
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
         return df
     except Exception as e:
         print(f"Error fetching candles: {e}")
@@ -247,7 +247,7 @@ def open_position(state, strategy_name, signal, current_price, config):
 
     # Create position
     position = {
-        'entry_time': datetime.now().isoformat(),
+        'entry_time': datetime.now(timezone.utc).isoformat(),
         'entry_price': entry_price,
         'size': position_size,
         'side': side,
@@ -282,6 +282,8 @@ def check_exit_conditions(position, current_price, current_time, time_stop_hours
     When SL/TP is breached, exit price = the SL/TP level (realistic fill).
     Also checks candle_high/candle_low to detect intra-candle breaches."""
     entry_time = datetime.fromisoformat(position['entry_time'])
+    if entry_time.tzinfo is None:
+        entry_time = entry_time.replace(tzinfo=timezone.utc)
     hours_in_trade = (current_time - entry_time).total_seconds() / 3600
 
     # Use candle extremes if available, otherwise fall back to current_price
@@ -331,7 +333,7 @@ def close_position(state, strategy_name, position, exit_price, exit_reason):
     # Record trade
     trade = {
         'entry_time': position['entry_time'],
-        'exit_time': datetime.now().isoformat(),
+        'exit_time': datetime.now(timezone.utc).isoformat(),
         'side': position['side'],
         'entry_price': position['entry_price'],
         'exit_price': exit_price,
@@ -370,7 +372,7 @@ def close_position(state, strategy_name, position, exit_price, exit_reason):
 
 def log_message(message):
     """Print log with timestamp"""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{timestamp}] {message}")
 
 
@@ -453,7 +455,7 @@ def run_trading_bot():
     # === STARTUP CHECK: Close any positions that are past SL/TP ===
     # Fetches candle history to detect breaches that happened while bot was down
     log_message("Checking for stale positions past SL/TP...")
-    current_time = datetime.now()
+    current_time = datetime.now(timezone.utc)
     for strategy_name, strategy in enabled_strategies.items():
         if strategy_name not in state:
             continue
@@ -482,6 +484,8 @@ def run_trading_bot():
                         pos_low = None
                         if df_hist is not None and len(df_hist) > 0:
                             entry_time = pd.Timestamp(position['entry_time'])
+                            if entry_time.tzinfo is None:
+                                entry_time = entry_time.tz_localize('UTC')
                             since_entry = df_hist[df_hist['timestamp'] >= entry_time]
                             if len(since_entry) > 0:
                                 pos_high = since_entry['high'].max()
@@ -505,7 +509,7 @@ def run_trading_bot():
     # Main loop
     while True:
         try:
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
 
             for strategy_name, strategy in enabled_strategies.items():
                 strategy_state = state[strategy_name]
