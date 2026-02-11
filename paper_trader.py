@@ -19,7 +19,7 @@ import atexit
 sys.stdout.reconfigure(line_buffering=True)
 
 from strategies import discover_strategies
-from strategy_base import calculate_cci, calculate_rsi, h4_filter, daily_filter
+from strategy_base import calculate_cci, calculate_rsi, calculate_bollinger_bands, h4_filter, daily_filter
 
 # Load .env file if running locally (not via systemd)
 from pathlib import Path
@@ -524,13 +524,25 @@ def run_trading_bot():
                         # Also fetch latest candle high/low to catch intra-candle breaches
                         candle_high = None
                         candle_low = None
+                        exit_df = None
                         try:
-                            mini_df = fetch_candles(exchange, strategy.symbol, strategy.timeframe, limit=2)
+                            # Fetch more candles for dynamic exit strategies (BB needs 20+)
+                            fetch_limit = 50 if getattr(strategy, 'dynamic_exit', False) else 2
+                            mini_df = fetch_candles(exchange, strategy.symbol, strategy.timeframe, limit=fetch_limit)
                             if mini_df is not None:
                                 candle_high = mini_df['high'].iloc[-1]
                                 candle_low = mini_df['low'].iloc[-1]
+                                if getattr(strategy, 'dynamic_exit', False):
+                                    exit_df = mini_df.copy()
                         except Exception:
                             pass  # Candle fetch failed, ticker price alone is enough
+
+                        # Dynamic TP update for mean-reversion strategies (BB exit)
+                        if exit_df is not None and getattr(strategy, 'dynamic_exit', False):
+                            for position in strategy_state['positions']:
+                                new_tp = strategy.update_take_profit(exit_df, position)
+                                if new_tp is not None:
+                                    position['take_profit'] = new_tp
 
                         for position in strategy_state['positions'][:]:
                             exit_reason, exit_price = check_exit_conditions(
@@ -576,7 +588,13 @@ def run_trading_bot():
 
                         # Debug: log indicator values and filter states
                         dbg = [f"{strategy_name}:"]
-                        if hasattr(strategy, 'cci_oversold'):
+                        if hasattr(strategy, 'bb_period'):
+                            rsi = calculate_rsi(df_closed, window=getattr(strategy, 'rsi_period', 14))
+                            sma, upper, lower = calculate_bollinger_bands(df_closed, strategy.bb_period, strategy.bb_std)
+                            price = df_closed['close'].iloc[-1]
+                            bb_pos = 'below' if price < lower.iloc[-1] else 'above' if price > upper.iloc[-1] else 'mid'
+                            dbg.append(f"RSI:{rsi.iloc[-1]:.0f} BB:{bb_pos}")
+                        elif hasattr(strategy, 'cci_oversold'):
                             cci = calculate_cci(df_closed)
                             dbg.append(f"CCI {cci.iloc[-2]:.0f}→{cci.iloc[-1]:.0f}")
                         elif hasattr(strategy, 'rsi_oversold'):

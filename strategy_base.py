@@ -43,10 +43,19 @@ class Strategy(ABC):
     strategy_type: str = "leverage"
     filters_description: str = ""
 
+    # --- Dynamic exit support ---
+    dynamic_exit: bool = False  # If True, TP is recalculated every cycle
+
     @abstractmethod
     def check_signal(self, df, h4_df=None, daily_df=None):
         """Return 1 (LONG), -1 (SHORT), or 0 (no signal)."""
         ...
+
+    def update_take_profit(self, df, position):
+        """Override in subclass to return dynamic TP price.
+        Called every exit check cycle when dynamic_exit=True.
+        Return None to keep existing TP unchanged."""
+        return None
 
     def get_config_dict(self) -> dict:
         """Return config dict compatible with open_position/close_position."""
@@ -131,3 +140,21 @@ def calculate_obv(df):
         else:
             obv.append(obv[-1])
     return obv
+
+
+def calculate_bollinger_bands(df, period=20, std_dev=2):
+    """Calculate Bollinger Bands. Returns (sma, upper, lower) as Series."""
+    sma = df['close'].rolling(period).mean()
+    std = df['close'].rolling(period).std()
+    upper = sma + (std * std_dev)
+    lower = sma - (std * std_dev)
+    return sma, upper, lower
+
+
+def calculate_atr(df, period=14):
+    """Calculate Average True Range."""
+    high_low = df['high'] - df['low']
+    high_close = (df['high'] - df['close'].shift(1)).abs()
+    low_close = (df['low'] - df['close'].shift(1)).abs()
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    return tr.rolling(period).mean()
