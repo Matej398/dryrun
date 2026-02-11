@@ -14,9 +14,23 @@ import os
 import sys
 import signal
 import atexit
+import logging
 
 # Force line-buffered stdout so logs flush immediately (even without python -u)
 sys.stdout.reconfigure(line_buffering=True)
+
+# Set up logging: write to both bot.log file and stdout
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bot.log')
+logger = logging.getLogger('dryrun')
+logger.setLevel(logging.INFO)
+_fmt = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+_fmt.converter = time.gmtime  # Use UTC timestamps
+_fh = logging.FileHandler(LOG_FILE)
+_fh.setFormatter(_fmt)
+logger.addHandler(_fh)
+_sh = logging.StreamHandler(sys.stdout)
+_sh.setFormatter(_fmt)
+logger.addHandler(_sh)
 
 from strategies import discover_strategies
 from strategy_base import calculate_cci, calculate_rsi, calculate_bollinger_bands, h4_filter, daily_filter
@@ -152,7 +166,7 @@ def fetch_candles(exchange, symbol, timeframe, limit=500):
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
         return df
     except Exception as e:
-        print(f"Error fetching candles: {e}")
+        log_message(f"Error fetching candles: {e}")
         return None
 
 
@@ -371,9 +385,8 @@ def close_position(state, strategy_name, position, exit_price, exit_reason):
 # =============================================================================
 
 def log_message(message):
-    """Print log with timestamp"""
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] {message}")
+    """Log with timestamp to both bot.log and stdout"""
+    logger.info(message)
 
 
 def send_telegram_alert(message):

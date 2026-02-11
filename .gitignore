@@ -25,6 +25,8 @@ paper_state*.json.save
 paper_trades*.json
 paper_log*.txt
 paper_trading_state.json
+bot.log
+*.pid
 
 # IDE / OS
 .idea/
