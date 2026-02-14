@@ -739,9 +739,43 @@ def release_lock():
         pass
 
 
-if __name__ == "__main__":
-    acquire_lock()
-    run_trading_bot()
+def close_all_positions():
+    """Close all open positions at current market price and exit."""
+    all_strategies = discover_strategies()
+    enabled_strategies = {k: v for k, v in all_strategies.items() if v.enabled}
+    exchange = init_exchange()
+    state = load_state()
 
-    # Or generate report
-    generate_performance_report()
+    found_any = False
+    for strategy_name, strategy in enabled_strategies.items():
+        if strategy_name not in state:
+            continue
+        strategy_state = state[strategy_name]
+        if len(strategy_state['positions']) == 0:
+            continue
+
+        found_any = True
+        current_price = fetch_ticker_price(exchange, strategy.symbol)
+        if current_price is None:
+            log_message(f"ERROR: Cannot fetch price for {strategy.symbol} — skipping {strategy_name}")
+            continue
+
+        for position in strategy_state['positions'][:]:
+            log_message(f"Closing {strategy_name} {position['side']} @ {fmt_price(current_price)}")
+            close_position(state, strategy_name, position, current_price, 'manual_close')
+
+    save_state(state)
+    if found_any:
+        log_message("All positions closed.")
+    else:
+        log_message("No open positions found.")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == '--close-all':
+        close_all_positions()
+    elif len(sys.argv) > 1 and sys.argv[1] == '--report':
+        generate_performance_report()
+    else:
+        acquire_lock()
+        run_trading_bot()
