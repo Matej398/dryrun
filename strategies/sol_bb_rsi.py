@@ -7,7 +7,7 @@ import pandas as pd
 class SolBbRsi(Strategy):
     name = "SOL_BB_RSI"
     display_name = "SOL BB+RSI MeanRev"
-    symbol = "SOL/USDT"
+    symbol = "SOL/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01

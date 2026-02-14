@@ -8,7 +8,7 @@ from strategy_base import Strategy, calculate_atr, h4_filter
 class SolWhale(Strategy):
     name = "SOL_WHALE"
     display_name = "SOL Whale Candle"
-    symbol = "SOL/USDT"
+    symbol = "SOL/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01

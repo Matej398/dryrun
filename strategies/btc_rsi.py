@@ -6,7 +6,7 @@ from strategy_base import Strategy, calculate_rsi, h4_filter
 class BtcRsi(Strategy):
     name = "BTC_RSI"
     display_name = "BTC RSI Extreme"
-    symbol = "BTC/USDT"
+    symbol = "BTC/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01

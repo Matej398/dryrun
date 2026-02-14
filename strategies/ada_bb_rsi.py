@@ -7,7 +7,7 @@ import pandas as pd
 class AdaBbRsi(Strategy):
     name = "ADA_BB_RSI"
     display_name = "ADA BB+RSI MeanRev"
-    symbol = "ADA/USDT"
+    symbol = "ADA/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01

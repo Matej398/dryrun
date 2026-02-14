@@ -6,7 +6,7 @@ from strategy_base import Strategy, calculate_obv
 class BnbObv(Strategy):
     name = "BNB_OBV"
     display_name = "BNB OBV Divergence"
-    symbol = "BNB/USDT"
+    symbol = "BNB/USDC:USDC"
     timeframe = "1d"
 
     risk_per_trade = 1.0

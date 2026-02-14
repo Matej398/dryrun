@@ -77,7 +77,7 @@ class Strategy(ABC):
     def get_dashboard_metadata(self) -> dict:
         """Return metadata for dashboard display."""
         match = re.match(r'^([A-Z]+)_', self.name)
-        ws_symbol = f"{match.group(1)}USDT" if match else "UNKNOWN"
+        ws_symbol = match.group(1) if match else "UNKNOWN"
         return {
             'name': self.display_name,
             'ws_symbol': ws_symbol,

@@ -8,7 +8,7 @@ from strategy_base import Strategy, calculate_atr, h4_filter
 class AvaxWhale(Strategy):
     name = "AVAX_WHALE"
     display_name = "AVAX Whale Candle"
-    symbol = "AVAX/USDT"
+    symbol = "AVAX/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01

@@ -7,7 +7,7 @@ import pandas as pd
 class AvaxBbRsi(Strategy):
     name = "AVAX_BB_RSI"
     display_name = "AVAX BB+RSI MeanRev"
-    symbol = "AVAX/USDT"
+    symbol = "AVAX/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01

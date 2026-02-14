@@ -7,7 +7,7 @@ import pandas as pd
 class EthBbRsi(Strategy):
     name = "ETH_BB_RSI"
     display_name = "ETH BB+RSI MeanRev"
-    symbol = "ETH/USDT"
+    symbol = "ETH/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01

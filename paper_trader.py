@@ -144,13 +144,7 @@ def save_state(state):
 
 def init_exchange():
     """Initialize exchange connection - public data only, no keys needed"""
-    exchange = ccxt.binance({
-        'enableRateLimit': True,
-        'options': {
-            'defaultType': 'future',
-        }
-    })
-
+    exchange = ccxt.hyperliquid({'enableRateLimit': True})
     return exchange
 
 
@@ -159,9 +153,13 @@ def init_exchange():
 # =============================================================================
 
 def fetch_candles(exchange, symbol, timeframe, limit=500):
-    """Fetch OHLCV candles"""
+    """Fetch OHLCV candles. Uses since parameter to avoid Hyperliquid returning too many candles."""
     try:
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+        since = None
+        duration = TIMEFRAME_DURATIONS.get(timeframe)
+        if duration:
+            since = int((datetime.now(timezone.utc) - duration * int(limit * 1.1)).timestamp() * 1000)
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
         return df
@@ -206,7 +204,7 @@ TIMEFRAME_DURATIONS = {
 
 def is_candle_complete(df, timeframe):
     """Check if we have a recently closed candle to trade on.
-    Binance always returns the forming candle as iloc[-1], so we check
+    Exchange always returns the forming candle as iloc[-1], so we check
     iloc[-2] (the latest CLOSED candle) to confirm fresh data is available."""
     if df is None or len(df) < 3:
         return False

@@ -6,7 +6,7 @@ from strategy_base import Strategy, calculate_cci, h4_filter, daily_filter
 class EthCci(Strategy):
     name = "ETH_CCI"
     display_name = "ETH CCI Extreme"
-    symbol = "ETH/USDT"
+    symbol = "ETH/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01

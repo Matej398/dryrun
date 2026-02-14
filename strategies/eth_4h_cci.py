@@ -11,7 +11,7 @@ from strategy_base import Strategy, calculate_cci, daily_filter
 class Eth4hCci(Strategy):
     name = "ETH_4H"
     display_name = "ETH CCI 4H"
-    symbol = "ETH/USDT"
+    symbol = "ETH/USDC:USDC"
     timeframe = "4h"
 
     # Risk parameters

@@ -8,7 +8,7 @@ from strategy_base import Strategy, calculate_atr, h4_filter
 class AdaWhale(Strategy):
     name = "ADA_WHALE"
     display_name = "ADA Whale Candle"
-    symbol = "ADA/USDT"
+    symbol = "ADA/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01

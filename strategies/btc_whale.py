@@ -8,7 +8,7 @@ from strategy_base import Strategy, calculate_atr, h4_filter
 class BtcWhale(Strategy):
     name = "BTC_WHALE"
     display_name = "BTC Whale Candle"
-    symbol = "BTC/USDT"
+    symbol = "BTC/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01       # 1% SL

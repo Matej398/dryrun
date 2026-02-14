@@ -65,11 +65,10 @@ def get_strategy_names(state):
 
 
 def extract_symbol_from_strategy(strategy_name):
-    """Extract trading symbol from strategy name (BTC_RSI -> BTCUSDT)"""
+    """Extract trading symbol from strategy name (BTC_RSI -> BTC)"""
     match = re.match(r'^([A-Z]+)_', strategy_name)
     if match:
-        base = match.group(1)
-        return f"{base}USDT"
+        return match.group(1)
     return "UNKNOWN"
 
 
@@ -168,7 +167,7 @@ DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>DRYRUN v5.1 - Dynamic Dashboard</title>
+    <title>DRYRUN v5.4 - Dynamic Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'><rect fill='%23000' x='0' y='0' width='10' height='1'/><rect fill='%23000' x='0' y='7' width='10' height='1'/><rect fill='%23000' x='0' y='1' width='1' height='6'/><rect fill='%23000' x='9' y='1' width='1' height='6'/><rect fill='%23000' x='3' y='2' width='1' height='1'/><rect fill='%23000' x='6' y='2' width='1' height='1'/><rect fill='%23000' x='2' y='4' width='1' height='1'/><rect fill='%23000' x='7' y='4' width='1' height='1'/><rect fill='%23000' x='3' y='5' width='4' height='1'/></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -531,7 +530,7 @@ DASHBOARD_HTML = """
                         <div class="strategy-header">
                             <div>
                                 <div class="strategy-name">{{ data.name }}</div>
-                                <div class="strategy-pair">{{ data.ws_symbol }}{% if data.position %} <span class="pos-badge pos-{{ data.position.direction }}">{{ data.position.direction }} {{ data.leverage }}x</span>{% endif %}</div>
+                                <div class="strategy-pair">{{ data.ws_symbol }}/USDC{% if data.position %} <span class="pos-badge pos-{{ data.position.direction }}">{{ data.position.direction }} {{ data.leverage }}x</span>{% endif %}</div>
                             </div>
                             <div class="strategy-filters">{{ data.filters }}</div>
                         </div>
@@ -720,43 +719,61 @@ DASHBOARD_HTML = """
         }
         
         function connectWebSocket() {
-            const streams = {{ ws_streams|safe }};
-            ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=' + streams.join('/'));
-            
+            const coins = {{ ws_coins|safe }};
+            ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
+
             ws.onopen = function() {
-                document.getElementById('ws-dot').classList.add('connected');
-                document.getElementById('ws-status').textContent = 'Live - Binance WebSocket';
-            };
-            
-            ws.onmessage = function(event) {
-                // Skip updates when tab is hidden to save memory
-                if (!isPageVisible) return;
-                
-                const msg = JSON.parse(event.data);
-                const data = msg.data;
-                const symbol = data.s;
-                const price = parseFloat(data.c);
-                const change = parseFloat(data.P);
-                
-                prices[symbol] = price;
-                
-                document.querySelectorAll('.strategy-card[data-symbol="' + symbol + '"]').forEach(function(card) {
-                    const stratName = card.dataset.strat;
-                    const priceEl = document.getElementById('price-' + stratName);
-                    if (priceEl) {
-                        const prev = parseFloat(priceEl.dataset.price) || price;
-                        priceEl.textContent = fmtPrice(price);
-                        priceEl.innerHTML += '<span class="price-change ' + (change >= 0 ? 'positive' : 'negative') + '">' + 
-                            (change >= 0 ? '+' : '') + change.toFixed(2) + '%</span>';
-                        
-                        priceEl.className = 'live-price ' + (price > prev ? 'positive' : price < prev ? 'negative' : 'neutral');
-                        priceEl.dataset.price = price;
-                    }
-                    
-                    updateUnrealized(stratName, price);
+                // Subscribe to allMids for all prices at once
+                ws.send(JSON.stringify({method: "subscribe", subscription: {type: "allMids"}}));
+                // Subscribe to activeAssetCtx per coin for 24h change
+                coins.forEach(function(coin) {
+                    ws.send(JSON.stringify({method: "subscribe", subscription: {type: "activeAssetCtx", coin: coin}}));
                 });
+                document.getElementById('ws-dot').classList.add('connected');
+                document.getElementById('ws-status').textContent = 'Live - Hyperliquid WebSocket';
             };
-            
+
+            ws.onmessage = function(event) {
+                if (!isPageVisible) return;
+                const msg = JSON.parse(event.data);
+
+                if (msg.channel === 'allMids') {
+                    const mids = msg.data.mids;
+                    Object.keys(mids).forEach(function(coin) {
+                        const price = parseFloat(mids[coin]);
+                        prices[coin] = price;
+                        document.querySelectorAll('.strategy-card[data-symbol="' + coin + '"]').forEach(function(card) {
+                            const stratName = card.dataset.strat;
+                            const priceEl = document.getElementById('price-' + stratName);
+                            if (priceEl) {
+                                const prev = parseFloat(priceEl.dataset.price) || price;
+                                priceEl.textContent = fmtPrice(price);
+                                priceEl.className = 'live-price ' + (price > prev ? 'positive' : price < prev ? 'negative' : 'neutral');
+                                priceEl.dataset.price = price;
+                            }
+                            updateUnrealized(stratName, price);
+                        });
+                    });
+                }
+
+                if (msg.channel === 'activeAssetCtx') {
+                    const coin = msg.data.coin;
+                    const ctx = msg.data.ctx;
+                    const midPx = parseFloat(ctx.midPx || ctx.markPx);
+                    const prevDay = parseFloat(ctx.prevDayPx);
+                    if (prevDay > 0) {
+                        const change = ((midPx - prevDay) / prevDay * 100);
+                        document.querySelectorAll('.strategy-card[data-symbol="' + coin + '"]').forEach(function(card) {
+                            const stratName = card.dataset.strat;
+                            const priceEl = document.getElementById('price-' + stratName);
+                            if (priceEl) {
+                                priceEl.innerHTML = fmtPrice(midPx) + '<span class="price-change ' + (change >= 0 ? 'positive' : 'negative') + '">' + (change >= 0 ? '+' : '') + change.toFixed(2) + '%</span>';
+                            }
+                        });
+                    }
+                }
+            };
+
             ws.onclose = function() {
                 document.getElementById('ws-dot').classList.remove('connected');
                 document.getElementById('ws-status').textContent = 'Disconnected - Reconnecting...';
@@ -933,7 +950,7 @@ def dashboard():
             filters = get_strategy_filters(strategy_name)
             leverage = 1
         
-        ws_symbols.add(ws_symbol.lower() + '@ticker')
+        ws_symbols.add(ws_symbol)
         
         balance = strat_state.get('capital', STARTING_BALANCE)
         closed_trades = strat_state.get('closed_trades', [])
@@ -993,7 +1010,7 @@ def dashboard():
             positions_json[strategy_name] = position
         
         # Collect trades for display with hold time
-        pair = ws_symbol.replace('USDT', '/USDT')
+        pair = f"{ws_symbol}/USDC"
         for trade in closed_trades:
             all_trades.append({
                 'symbol': ws_symbol,
@@ -1036,7 +1053,7 @@ def dashboard():
         last_updated=last_updated,
         trades=all_trades,
         positions_json=json.dumps(positions_json),
-        ws_streams=json.dumps(list(ws_symbols)),
+        ws_coins=json.dumps(list(ws_symbols)),
         starting_balance=STARTING_BALANCE,
     )
 

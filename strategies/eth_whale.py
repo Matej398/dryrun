@@ -8,7 +8,7 @@ from strategy_base import Strategy, calculate_atr, h4_filter
 class EthWhale(Strategy):
     name = "ETH_WHALE"
     display_name = "ETH Whale Candle"
-    symbol = "ETH/USDT"
+    symbol = "ETH/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01

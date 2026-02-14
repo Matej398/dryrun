@@ -6,7 +6,7 @@ from strategy_base import Strategy
 class BtcVol(Strategy):
     name = "BTC_VOL"
     display_name = "BTC Volume Surge"
-    symbol = "BTC/USDT"
+    symbol = "BTC/USDC:USDC"
     timeframe = "1d"
 
     risk_per_trade = 1.0

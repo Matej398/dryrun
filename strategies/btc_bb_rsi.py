@@ -7,7 +7,7 @@ from strategy_base import Strategy, calculate_rsi, calculate_bollinger_bands, h4
 class BtcBbRsi(Strategy):
     name = "BTC_BB_RSI"
     display_name = "BTC BB+RSI MeanRev"
-    symbol = "BTC/USDT"
+    symbol = "BTC/USDC:USDC"
     timeframe = "15m"
 
     stop_loss_pct = 0.01       # 1% fixed SL (safety net)
