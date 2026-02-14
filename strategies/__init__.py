@@ -45,7 +45,8 @@ def discover_strategies(directory=None):
         for attr_name, attr_value in inspect.getmembers(module, inspect.isclass):
             if (issubclass(attr_value, Strategy)
                     and attr_value is not Strategy
-                    and attr_value.name is not NotImplemented):
+                    and attr_value.name is not NotImplemented
+                    and attr_value.__module__ == module.__name__):
                 try:
                     instance = attr_value()
                     strategies[instance.name] = instance
