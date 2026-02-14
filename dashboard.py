@@ -59,9 +59,16 @@ def get_discovered_strategies():
 
 
 def get_strategy_names(state):
-    """Get strategy names from discovered strategies only."""
+    """Get strategy names from discovered strategies + any in state file with trades."""
     discovered = get_discovered_strategies()
-    return list(discovered.keys())
+    names = list(discovered.keys())
+    # Include retired strategies that still have trade history in state
+    for key in state:
+        if key.startswith('_') or not isinstance(state[key], dict):
+            continue
+        if key not in names and state[key].get('closed_trades'):
+            names.append(key)
+    return names
 
 
 def extract_symbol_from_strategy(strategy_name):
@@ -610,6 +617,7 @@ DASHBOARD_HTML = """
                             <th>Result</th>
                             <th class="sortable" onclick="sortTrades()" id="time-header">Time <span id="sort-arrow">▼</span></th>
                             <th>Hold</th>
+                            <th>Active</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -625,6 +633,7 @@ DASHBOARD_HTML = """
                             <td><span class="badge badge-{{ 'win' if trade.pnl >= 0 else 'loss' }}">{{ 'WIN' if trade.pnl >= 0 else 'LOSS' }}</span></td>
                             <td>{% if trade.exit_time %}{{ trade.exit_time[8:10] }}.{{ trade.exit_time[5:7] }} {{ trade.exit_time[11:16] }}{% else %}-{% endif %}</td>
                             <td>{{ trade.hold_time }}</td>
+                            <td>{% if trade.active %}<span class="positive">Yes</span>{% else %}<span style="color:#67778E">Retired</span>{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -1011,6 +1020,7 @@ def dashboard():
         
         # Collect trades for display with hold time
         pair = f"{ws_symbol}/USDC"
+        is_active = strategy_name in discovered
         for trade in closed_trades:
             all_trades.append({
                 'symbol': ws_symbol,
@@ -1023,7 +1033,8 @@ def dashboard():
                 'pnl': trade.get('pnl', 0),
                 'entry_time': trade.get('entry_time', ''),
                 'exit_time': trade.get('exit_time', ''),
-                'hold_time': calculate_hold_time(trade.get('entry_time'), trade.get('exit_time'))
+                'hold_time': calculate_hold_time(trade.get('entry_time'), trade.get('exit_time')),
+                'active': is_active,
             })
     
     # Sort trades by exit time
