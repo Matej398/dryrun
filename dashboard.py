@@ -1,5 +1,5 @@
 """
-DRYRUN v5.3 - Dynamic Multi-Strategy Dashboard
+DRYRUN v5.4 - Dynamic Multi-Strategy Dashboard
 - Auto-discovers strategies from strategies/ folder
 - Risk exposure in portfolio summary
 - Filter column in trades table
@@ -59,16 +59,9 @@ def get_discovered_strategies():
 
 
 def get_strategy_names(state):
-    """Get strategy names from discovered strategies + any in state file with trades."""
+    """Get strategy names from discovered (active) strategies only."""
     discovered = get_discovered_strategies()
-    names = list(discovered.keys())
-    # Include retired strategies that still have trade history in state
-    for key in state:
-        if key.startswith('_') or not isinstance(state[key], dict):
-            continue
-        if key not in names and state[key].get('closed_trades'):
-            names.append(key)
-    return names
+    return list(discovered.keys())
 
 
 def extract_symbol_from_strategy(strategy_name):
@@ -1037,6 +1030,35 @@ def dashboard():
                 'active': is_active,
             })
     
+    # Collect trades from retired strategies (in state but not discovered)
+    for strategy_name, strat_state in state.items():
+        if strategy_name.startswith('_') or not isinstance(strat_state, dict):
+            continue
+        if strategy_name in discovered:
+            continue  # Already handled above
+        closed_trades = strat_state.get('closed_trades', [])
+        if not closed_trades:
+            continue
+        ws_symbol = extract_symbol_from_strategy(strategy_name)
+        pair = f"{ws_symbol}/USDC"
+        display_name = get_strategy_display_name(strategy_name)
+        filters = get_strategy_filters(strategy_name)
+        for trade in closed_trades:
+            all_trades.append({
+                'symbol': ws_symbol,
+                'pair': pair,
+                'strategy_name': display_name,
+                'filter': filters,
+                'direction': trade.get('side', 'long').lower(),
+                'entry_price': trade.get('entry_price', 0),
+                'exit_price': trade.get('exit_price', 0),
+                'pnl': trade.get('pnl', 0),
+                'entry_time': trade.get('entry_time', ''),
+                'exit_time': trade.get('exit_time', ''),
+                'hold_time': calculate_hold_time(trade.get('entry_time'), trade.get('exit_time')),
+                'active': False,
+            })
+
     # Sort trades by exit time
     all_trades.sort(key=lambda x: x.get('exit_time', ''), reverse=True)
     
