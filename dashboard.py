@@ -1039,6 +1039,9 @@ def dashboard():
         closed_trades = strat_state.get('closed_trades', [])
         if not closed_trades:
             continue
+        balance = strat_state.get('capital', STARTING_BALANCE)
+        retired_pnl = balance - STARTING_BALANCE
+        total_balance += retired_pnl  # Add only PnL, not starting capital
         wins = len([t for t in closed_trades if t.get('pnl', 0) > 0])
         losses = len([t for t in closed_trades if t.get('pnl', 0) <= 0])
         total_trades += wins + losses
