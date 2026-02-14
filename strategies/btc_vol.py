@@ -9,7 +9,7 @@ class BtcVol(Strategy):
     symbol = "BTC/USDC:USDC"
     timeframe = "1d"
 
-    risk_per_trade = 1.0
+    risk_per_trade = 0.03
     stop_loss_pct = 0.03
     take_profit_pct = 0.10
     time_stop_hours = None
