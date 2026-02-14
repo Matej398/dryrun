@@ -1030,8 +1030,7 @@ def dashboard():
                 'active': is_active,
             })
     
-    # Collect trades + totals from retired strategies (in state but not discovered)
-    retired_count = 0
+    # Collect trades + win/loss counts from retired strategies (in state but not discovered)
     for strategy_name, strat_state in state.items():
         if strategy_name.startswith('_') or not isinstance(strat_state, dict):
             continue
@@ -1040,11 +1039,8 @@ def dashboard():
         closed_trades = strat_state.get('closed_trades', [])
         if not closed_trades:
             continue
-        retired_count += 1
-        balance = strat_state.get('capital', STARTING_BALANCE)
         wins = len([t for t in closed_trades if t.get('pnl', 0) > 0])
         losses = len([t for t in closed_trades if t.get('pnl', 0) <= 0])
-        total_balance += balance
         total_trades += wins + losses
         total_wins += wins
         total_losses += losses
@@ -1072,7 +1068,7 @@ def dashboard():
     all_trades.sort(key=lambda x: x.get('exit_time', ''), reverse=True)
     
     # Calculate portfolio-level metrics
-    total_starting = STARTING_BALANCE * (len(strategies) + retired_count)
+    total_starting = STARTING_BALANCE * len(strategies)
     total_pnl = total_balance - total_starting
     total_pnl_pct = (total_pnl / total_starting * 100) if total_starting > 0 else 0
     
