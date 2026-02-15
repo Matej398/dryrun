@@ -637,7 +637,7 @@ def run_trading_bot():
                 total = sum(state[s]['capital'] for s in enabled_strategies if s in state)
                 log_message(f"Status | {num_strategies} strategies | Total: ${total:.0f}")
 
-            time.sleep(60)
+            time.sleep(15)
 
         except KeyboardInterrupt:
             log_message("Bot stopped by user")
