@@ -472,8 +472,7 @@ DASHBOARD_HTML = """
         .restart-btn:hover { border-color: #3CE3AB; color: #3CE3AB; }
         .strat-filter-select {
             background: #0E1218; border: 1px solid #2A3441; color: #67778E;
-            padding: 1px 6px; height: 22px; font-size: 11px; outline: none;
-            box-sizing: border-box;
+            padding: 2px 6px; font-size: 11px; outline: none;
         }
         .pos-badge {
             margin-left: 6px; font-size: 11px; padding: 2px 6px;
@@ -519,20 +518,19 @@ DASHBOARD_HTML = """
                 <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;">
                     <div>Strategies<span>({{ strategies|length }})</span></div>
                     <select id="strat-filter" onchange="filterStrategies()" class="strat-filter-select">
-                        <option value="active">Active ({{ active_strategy_count }})</option>
-                        <option value="retired">Retired ({{ retired_strategy_count }})</option>
-                        <option value="all">All ({{ strategies|length }})</option>
+                        <option value="active">Active</option>
+                        <option value="all">All</option>
                     </select>
                 </div>
                 <div class="scroll-content">
                 <div class="strategies-container">
                 <div class="strategies-grid" id="strategies-grid">
                     {% for strat_name, data in strategies.items() %}
-                    <div class="strategy-card" data-symbol="{{ data.ws_symbol }}" data-strat="{{ strat_name }}" data-has-position="{{ 'yes' if data.position else 'no' }}" data-active="{{ 'yes' if data.active else 'no' }}">
+                    <div class="strategy-card" data-symbol="{{ data.ws_symbol }}" data-strat="{{ strat_name }}" data-has-position="{{ 'yes' if data.position else 'no' }}">
                         <div class="strategy-header">
                             <div>
                                 <div class="strategy-name">{{ data.name }}</div>
-                                <div class="strategy-pair">{{ data.ws_symbol }}/USDC{% if data.position %} <span class="pos-badge pos-{{ data.position.direction }}">{{ data.position.direction }} {{ data.leverage }}x</span>{% endif %}{% if not data.active %} <span style="color:#67778E;">Retired</span>{% endif %}</div>
+                                <div class="strategy-pair">{{ data.ws_symbol }}/USDC{% if data.position %} <span class="pos-badge pos-{{ data.position.direction }}">{{ data.position.direction }} {{ data.leverage }}x</span>{% endif %}</div>
                             </div>
                             <div class="strategy-filters">{{ data.filters }}</div>
                         </div>
@@ -587,7 +585,7 @@ DASHBOARD_HTML = """
                     </div>
                     {% endfor %}
                 </div>
-                <div class="no-strategies" id="no-strategies" style="display:none;">No strategies for this filter</div>
+                <div class="no-strategies" id="no-strategies" style="display:none;">No active strategies</div>
                 </div>
                 </div>
             </div>
@@ -674,17 +672,9 @@ DASHBOARD_HTML = """
             const filter = document.getElementById('strat-filter').value;
             let visibleCount = 0;
             document.querySelectorAll('.strategy-card').forEach(card => {
-                const isActive = card.dataset.active === 'yes';
-                let show = false;
-                if (filter === 'all') {
-                    show = true;
-                } else if (filter === 'retired') {
-                    show = !isActive;
-                } else {
-                    show = isActive;
-                }
-                card.style.display = show ? '' : 'none';
-                if (show) visibleCount++;
+                const hasPos = card.dataset.hasPosition === 'yes';
+                if (filter === 'all') { card.style.display = ''; visibleCount++; }
+                else { const show = hasPos; card.style.display = show ? '' : 'none'; if (show) visibleCount++; }
             });
             document.getElementById('no-strategies').style.display = visibleCount === 0 ? '' : 'none';
         }
@@ -1008,7 +998,6 @@ def dashboard():
             'filters': filters,
             'ws_symbol': ws_symbol,
             'strat_type': strat_type,
-            'active': True,
             'leverage': leverage,
             'balance': balance,
             'pnl': pnl,
@@ -1041,71 +1030,27 @@ def dashboard():
                 'active': is_active,
             })
     
-    # Collect retired strategies from state (in state but not discovered)
+    # Collect trades + totals from retired strategies (in state but not discovered)
     retired_count = 0
     for strategy_name, strat_state in state.items():
         if strategy_name.startswith('_') or not isinstance(strat_state, dict):
             continue
         if strategy_name in discovered:
             continue  # Already handled above
-        if not any(k in strat_state for k in ('capital', 'positions', 'closed_trades')):
-            continue
-
         closed_trades = strat_state.get('closed_trades', [])
-        positions = strat_state.get('positions', [])
+        if not closed_trades:
+            continue
         retired_count += 1
-        balance = strat_state.get('capital', STARTING_BALANCE)
-        total_balance += balance
+        total_balance += strat_state.get('capital', STARTING_BALANCE)
         wins = len([t for t in closed_trades if t.get('pnl', 0) > 0])
         losses = len([t for t in closed_trades if t.get('pnl', 0) <= 0])
         total_trades += wins + losses
         total_wins += wins
         total_losses += losses
         ws_symbol = extract_symbol_from_strategy(strategy_name)
-        ws_symbols.add(ws_symbol)
-        position = None
-        if positions and len(positions) > 0:
-            pos = positions[0]
-            position_size = pos.get('size', 0) * pos.get('entry_price', 1)
-            position = {
-                'direction': pos.get('side', 'long').lower(),
-                'entry_price': pos.get('entry_price', 0),
-                'stop_price': pos.get('stop_loss', 0),
-                'target_price': pos.get('take_profit', 0),
-                'size': position_size,
-                'entry_time': pos.get('entry_time', '')
-            }
-            total_exposure += position_size
-            if get_strategy_type(strategy_name) == 'leverage':
-                leverage_exposure += position_size
-            else:
-                spot_exposure += position_size
-
-        pnl = balance - STARTING_BALANCE
-        pnl_pct = pnl / STARTING_BALANCE * 100
-        win_rate = (wins / (wins + losses) * 100) if (wins + losses) > 0 else 0
+        pair = f"{ws_symbol}/USDC"
         display_name = get_strategy_display_name(strategy_name)
         filters = get_strategy_filters(strategy_name)
-
-        strategies[strategy_name] = {
-            'name': display_name,
-            'filters': filters,
-            'ws_symbol': ws_symbol,
-            'strat_type': get_strategy_type(strategy_name),
-            'active': False,
-            'leverage': 1,
-            'balance': balance,
-            'pnl': pnl,
-            'pnl_pct': pnl_pct,
-            'wins': wins,
-            'losses': losses,
-            'win_rate': win_rate,
-            'position': position,
-        }
-        if position:
-            positions_json[strategy_name] = position
-
-        pair = f"{ws_symbol}/USDC"
         for trade in closed_trades:
             all_trades.append({
                 'symbol': ws_symbol,
@@ -1124,12 +1069,9 @@ def dashboard():
 
     # Sort trades by exit time
     all_trades.sort(key=lambda x: x.get('exit_time', ''), reverse=True)
-
-    active_strategy_count = sum(1 for data in strategies.values() if data.get('active'))
-    retired_strategy_count = len(strategies) - active_strategy_count
     
     # Calculate portfolio-level metrics
-    total_starting = STARTING_BALANCE * len(strategies)
+    total_starting = STARTING_BALANCE * (len(strategies) + retired_count)
     total_pnl = total_balance - total_starting
     total_pnl_pct = (total_pnl / total_starting * 100) if total_starting > 0 else 0
     
@@ -1154,8 +1096,6 @@ def dashboard():
         positions_json=json.dumps(positions_json),
         ws_coins=json.dumps(list(ws_symbols)),
         starting_balance=STARTING_BALANCE,
-        active_strategy_count=active_strategy_count,
-        retired_strategy_count=retired_strategy_count,
     )
 
 
